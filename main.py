@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth
+from routers import auth, procedure
 from core.config import settings
 from db.database import engine, Base
 import models
@@ -24,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(procedure.router)
 
 
 if __name__ == "__main__":

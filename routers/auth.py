@@ -30,5 +30,5 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     if not db_user:
         raise HTTPException(status_code=401, detail="Email ou senha inválidos")
 
-    access_token = create_access_token({"sub": db_user.email, "clinic_id": db_user.clinic_id})
+    access_token = create_access_token({"sub": db_user.email, "clinic_id": db_user.clinic_id, "nome": db_user.nome})
     return {"access_token": access_token, "token_type": "bearer"}

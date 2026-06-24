@@ -22,8 +22,7 @@ def create_user(db: Session, user: UserCreate):
 
     clinic = create_clinic(
         db,
-        user.clinic.nome,
-        user.clinic.cnpj
+        user.clinic
     )
 
     db_user = User(

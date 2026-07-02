@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, procedure
+from routers import auth, procedure, dentist
 from core.config import settings
 from db.database import engine, Base
 import models
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -25,6 +26,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(procedure.router)
+app.include_router(dentist.router)
 
 
 if __name__ == "__main__":

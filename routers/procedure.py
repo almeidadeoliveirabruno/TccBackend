@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from db.dependencies import get_db, get_current_clinic_id
 from schemas.procedure import (
     ProcedureCreate,
     ProcedureUpdate,
-    ProcedureResponse
+    ProcedureResponse,
+    ProcedurePaginatedResponse,
 )
 from services.procedure_service import (
     create_procedure,
@@ -33,15 +34,26 @@ def create_procedure_endpoint(
 
 
 # Listar todos os procedimentos da clínica
-@router.get("/", response_model=list[ProcedureResponse])
-def list_procedures(
+@router.get("/", response_model=ProcedurePaginatedResponse)
+def get_procedures(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(3, ge=1, le=20),
+    search: str | None = Query(None),
+    category: str | None = Query(None),
     db: Session = Depends(get_db),
     clinic_id: int = Depends(get_current_clinic_id)
 ):
-    return get_procedures_by_clinic_id(db, clinic_id)
+    return get_procedures_by_clinic_id(
+        db=db,
+        clinic_id=clinic_id,
+        page=page,
+        page_size=page_size,
+        search = search,
+        category = category
+    )
 
 #Buscar procedimento pelo nome
-@router.get("/search", response_model=list[ProcedureResponse])
+@router.get("/search", response_model=ProcedureResponse)
 def get_procedures(
     search_query: str | None = None,
     db: Session = Depends(get_db),

@@ -35,3 +35,8 @@ class Clinic(Base):
         "Procedure",
         back_populates="clinic"
     )
+
+    dentists = relationship(
+        "Dentist",
+        back_populates="clinic"
+    )

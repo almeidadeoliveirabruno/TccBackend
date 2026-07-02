@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 from models.procedure import Procedure
 from schemas.procedure import ProcedureCreate, ProcedureResponse, ProcedureUpdate
 from fastapi import HTTPException
+import math
+from sqlalchemy import func
 
 
 # Função para criar um procedimento, associando-o à clínica do usuário autenticado
@@ -38,13 +40,79 @@ def create_procedure(
     return procedure
 
 #Função para listar os procedimentos de uma clínica, usando o clinic_id do token de autenticação 
+# def get_procedures_by_clinic_id(
+#     db: Session,
+#     clinic_id: int,
+#     page: int = 1,
+#     page_size: int = 10
+# ):
+#     skip = (page - 1) * page_size
+
+#     total = (
+#     db.query(Procedure)
+#     .filter(Procedure.clinic_id == clinic_id)
+#     .count()
+# )
+    
+#     procedures = (
+#     db.query(Procedure)
+#     .filter(Procedure.clinic_id == clinic_id)
+#     .offset(skip)
+#     .limit(page_size)
+#     .all()
+# )
+
+#     statistics = statistics_procedures(db, clinic_id)
+    
+#     return {
+#     "items": procedures,
+#     "page": page,
+#     "page_size": page_size,
+#     "total": total,
+#     "total_pages": math.ceil(total / page_size),
+#     "statistics": statistics    
+# }
+
 def get_procedures_by_clinic_id(
     db: Session,
-    clinic_id: int
+    clinic_id: int,
+    page: int = 1,
+    page_size: int = 10,
+    search: str | None = None,
+    category: str | None = None,
 ):
-    return db.query(Procedure).filter(
-        Procedure.clinic_id == clinic_id
-    ).all()
+    skip = (page - 1) * page_size
+
+    query = db.query(Procedure).filter(Procedure.clinic_id == clinic_id)
+
+    if search:
+        like = f"%{search}%"
+        query = query.filter(
+            (Procedure.name.ilike(like)) | (Procedure.category.ilike(like))
+        )
+
+    if category:
+        query = query.filter(Procedure.category == category)
+
+    total = query.count()
+
+    procedures = (
+        query
+        .offset(skip)
+        .limit(page_size)
+        .all()
+    )
+
+    statistics = statistics_procedures(db, clinic_id)  
+
+    return {
+        "items": procedures,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": max(1, math.ceil(total / page_size)) if total else 1,
+        "statistics": statistics
+    }
 
 #Função para obter um procedimento específico por ID, garantindo que ele pertença à clínica do usuário autenticado
 def get_procedure_by_id(
@@ -132,3 +200,25 @@ def search_procedures(
     ).all()
 
     return procedures
+
+def statistics_procedures(
+    db: Session,
+    clinic_id: int
+):
+    result = (
+        db.query(
+            func.count(Procedure.id).label("total_procedures"),
+            func.avg(Procedure.price).label("average_price"),
+            func.max(Procedure.price).label("max_price"),
+            func.count(func.distinct(Procedure.category)).label("unique_categories"),
+        )
+        .filter(Procedure.clinic_id == clinic_id)
+        .one()
+    )
+
+    return {
+        "total_procedures": result.total_procedures,
+        "average_price": float(result.average_price or 0),
+        "max_price": float(result.max_price or 0),
+        "unique_categories": result.unique_categories,
+    }

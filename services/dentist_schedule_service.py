@@ -64,7 +64,7 @@ def get_or_create_schedule(db: Session, time_begin, time_end) -> Schedule:
 def association_exists(
     db: Session, dentist_id: int, schedule_id: int, day_of_week: int, exclude_id: int | None = None
 ) -> bool:
-    '''A função association_exists verifica se já existe uma associação de horário para um dentista específico em um determinado dia da semana. Se exclude_id for fornecido, a função ignora essa associação específica na verificação, permitindo atualizações sem conflito.'''
+    '''Verifica se já existe uma associação idêntica (mesmo dentista, mesmo horário exato, mesmo dia).'''
     query = db.query(DentistSchedule).filter(
         DentistSchedule.dentist_id == dentist_id,
         DentistSchedule.schedule_id == schedule_id,
@@ -73,6 +73,58 @@ def association_exists(
     if exclude_id is not None:
         query = query.filter(DentistSchedule.id != exclude_id)
     return query.first() is not None
+
+
+def _ranges_overlap(begin_a, end_a, begin_b, end_b) -> bool:
+    """Dois intervalos se sobrepõem se um começa antes do outro terminar
+    e vice-versa. Limites que só se tocam (ex: 08:00-10:00 e 10:00-12:00)
+    NÃO contam como sobreposição."""
+    return begin_a < end_b and begin_b < end_a
+
+
+def _assert_no_overlap(
+    db: Session,
+    dentist_id: int,
+    day_of_week: int,
+    time_begin,
+    time_end,
+    exclude_association_id: int | None = None,
+    extra_ranges: list[tuple] | None = None,
+) -> None:
+    """Levanta 400 se o intervalo [time_begin, time_end) sobrepõe algum
+    horário já cadastrado pro dentista nesse dia da semana. `extra_ranges`
+    permite checar também contra itens ainda não persistidos (útil ao
+    criar vários horários na mesma chamada)."""
+    query = (
+        db.query(DentistSchedule)
+        .join(Schedule, DentistSchedule.schedule_id == Schedule.id)
+        .filter(
+            DentistSchedule.dentist_id == dentist_id,
+            DentistSchedule.day_of_week == day_of_week,
+        )
+    )
+    if exclude_association_id is not None:
+        query = query.filter(DentistSchedule.id != exclude_association_id)
+
+    for assoc in query.all():
+        if _ranges_overlap(time_begin, time_end, assoc.schedule.time_begin, assoc.schedule.time_end):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Esse horário sobrepõe outro já cadastrado para este dentista "
+                    f"no mesmo dia ({assoc.schedule.time_begin}–{assoc.schedule.time_end})."
+                ),
+            )
+
+    for begin_x, end_x in extra_ranges or []:
+        if _ranges_overlap(time_begin, time_end, begin_x, end_x):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Dois horários enviados na mesma requisição se sobrepõem "
+                    f"no mesmo dia ({begin_x}–{end_x})."
+                ),
+            )
 
 
 # ---------- Create ----------
@@ -89,13 +141,25 @@ def create_dentist_schedules(
         raise HTTPException(status_code=400, detail="At least one schedule must be provided.")
 
     schedules_created = []
+    # Guarda os ranges já aceitos nesta mesma chamada, agrupados por dia,
+    # pra pegar sobreposição entre itens do próprio payload.
+    accepted_ranges_by_day: dict[int, list[tuple]] = {}
 
     try:
         for item in availability:
+            _assert_no_overlap(
+                db,
+                dentist_id,
+                item.day_of_week,
+                item.time_begin,
+                item.time_end,
+                extra_ranges=accepted_ranges_by_day.get(item.day_of_week, []),
+            )
+
             schedule = get_or_create_schedule(db, item.time_begin, item.time_end)
 
             if association_exists(db, dentist_id, schedule.id, item.day_of_week):
-                continue  # already registered, skip
+                continue  # já cadastrado exatamente igual, pula
 
             new_association = DentistSchedule(
                 dentist_id=dentist_id,
@@ -104,6 +168,10 @@ def create_dentist_schedules(
             )
             db.add(new_association)
             db.flush()
+
+            accepted_ranges_by_day.setdefault(item.day_of_week, []).append(
+                (item.time_begin, item.time_end)
+            )
 
             schedules_created.append(
                 schemas.ScheduleCreatedResponse(
@@ -162,6 +230,15 @@ def update_dentist_schedule(
 ) -> schemas.ScheduleCreatedResponse:
     get_dentist_or_404(db, dentist_id, clinic_id)
     association = get_dentist_schedule_or_404(db, dentist_schedule_id, dentist_id, clinic_id)
+
+    _assert_no_overlap(
+        db,
+        dentist_id,
+        data.day_of_week,
+        data.time_begin,
+        data.time_end,
+        exclude_association_id=association.id,
+    )
 
     schedule = get_or_create_schedule(db, data.time_begin, data.time_end)
 

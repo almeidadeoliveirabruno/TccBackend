@@ -11,7 +11,7 @@ class ScheduleItem(BaseModel):
     @classmethod
     def validate_day_of_week(cls, v):
         if v < 0 or v > 6:
-            raise ValueError("day_of_week must be between 0 (Sunday) and 6 (Saturday)")
+            raise ValueError("day_of_week precisa ser no intervalo 0 (domingo) e 6 (Sábado)")
         return v
 
     @field_validator("time_end")
@@ -19,7 +19,7 @@ class ScheduleItem(BaseModel):
     def validate_time_end(cls, v, info):
         time_begin = info.data.get("time_begin")
         if time_begin and v <= time_begin:
-            raise ValueError("time_end must be greater than time_begin")
+            raise ValueError("time_end precisa ser maior que time_begin")
         return v
 
 
@@ -36,7 +36,7 @@ class ScheduleUpdate(BaseModel):
     @classmethod
     def validate_day_of_week(cls, v):
         if v < 0 or v > 6:
-            raise ValueError("day_of_week must be between 0 (Sunday) and 6 (Saturday)")
+            raise ValueError("day_of_week precisa ser no intervalo 0 (domingo) e 6 (Sábado)")
         return v
 
     @field_validator("time_end")
@@ -44,7 +44,7 @@ class ScheduleUpdate(BaseModel):
     def validate_time_end(cls, v, info):
         time_begin = info.data.get("time_begin")
         if time_begin and v <= time_begin:
-            raise ValueError("time_end must be greater than time_begin")
+            raise ValueError("time_end precisa ser maior que time_begin")
         return v
 
 
@@ -60,4 +60,4 @@ class ScheduleCreatedResponse(BaseModel):
 
 class AvailabilityResponse(BaseModel):
     dentist_id: int
-    schedules_created: list[ScheduleCreatedResponse]
+    schedules_created: list[ScheduleCreatedResponse] 

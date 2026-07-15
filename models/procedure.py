@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float,  Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from db.database import Base
-from models.associations.dentist_procedures import dentist_procedures
 
 class Procedure(Base):
     __tablename__ = "procedures"
@@ -24,9 +23,4 @@ class Procedure(Base):
         back_populates="procedures"
     )
 
-    dentists = relationship(
-    "Dentist",
-    secondary=dentist_procedures,
-    back_populates="procedures"
-)
 

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api"
     DEBUG: bool = True
 
-    DATABASE_URL: str = "sqlite:///./database.db"
+    DATABASE_URL: str = "sqlite:///./test.db"
 
     # Em dev, permitir todas as origens para evitar erros de CORS.
     # Em produção, definir via .env com uma lista separada por vírgulas.
@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
 
     SECRET_KEY: str
+
+    CPF_ENCRYPTION_KEY: str
+
 
     @field_validator("ALLOWED_ORIGINS")
     def parse_allowed_origins(cls, v: str) -> List[str]:

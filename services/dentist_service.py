@@ -29,6 +29,7 @@ def get_or_create_specialty(db: Session, name: str) -> Specialty:
 
 def _resolve_specialties(db: Session, names: list[str]) -> list[Specialty]:
     # dict.fromkeys em vez de set() pra manter a ordem em que foram digitadas
+    #A função abaixo remove duplicatas e espaços em branco da lista de especialidades, mantendo a ordem original. Em seguida, ela chama get_or_create_specialty para cada especialidade única, garantindo que cada uma exista no banco de dados e retornando uma lista de objetos Specialty.
     unique_names = list(dict.fromkeys(n.strip() for n in names if n and n.strip()))
     return [get_or_create_specialty(db, name) for name in unique_names]
 

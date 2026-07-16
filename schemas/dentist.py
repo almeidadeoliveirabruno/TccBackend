@@ -73,6 +73,7 @@ class DentistResponseDetail(BaseModel):
     phone: str
     cro: str
     cpf: str
+    cpf_masked: str          # ← essa linha é nova
     specialties: list[str] = []
     status: DentistStatus
     street: str

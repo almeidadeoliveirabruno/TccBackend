@@ -31,12 +31,6 @@ def create_dentist_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
-    # Nenhum try/except/commit manual aqui: o get_db já garante que, se
-    # QUALQUER exceção subir daqui pra cima (incluindo o HTTPException de
-    # sobreposição lá do create_dentist_schedules), a sessão inteira é
-    # revertida — dentista incluso, mesmo que ele já tenha sido "flushado".
-    # O commit só acontece automaticamente se a função inteira retornar
-    # sem erro.
     dentist = create_dentist(db, dentist_data, clinic_id)
 
     if dentist_data.schedules:

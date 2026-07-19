@@ -121,7 +121,7 @@ def get_dentists_by_clinic_id(
 
     total = query.count()
 
-    dentists = query.offset(skip).limit(page_size).all()
+    dentists = query.order_by(Dentist.name).offset(skip).limit(page_size).all()
 
     statistics = statistics_dentists(db, clinic_id)
 

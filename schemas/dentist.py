@@ -72,8 +72,8 @@ class DentistResponseDetail(BaseModel):
     email: str
     phone: str
     cro: str
-    cpf: str
-    cpf_masked: str          # ← essa linha é nova
+    cpf_hash: str
+    cpf_masked: str          
     specialties: list[str] = []
     status: DentistStatus
     street: str

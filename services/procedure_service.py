@@ -5,7 +5,6 @@ from fastapi import HTTPException
 import math
 from sqlalchemy import func
 
-
 # Função para criar um procedimento, associando-o à clínica do usuário autenticado
 #verificar se o procedimento já existe para a clínica antes de criar um novo procedimento
 def create_procedure(
@@ -39,40 +38,6 @@ def create_procedure(
 
     return procedure
 
-#Função para listar os procedimentos de uma clínica, usando o clinic_id do token de autenticação 
-# def get_procedures_by_clinic_id(
-#     db: Session,
-#     clinic_id: int,
-#     page: int = 1,
-#     page_size: int = 10
-# ):
-#     skip = (page - 1) * page_size
-
-#     total = (
-#     db.query(Procedure)
-#     .filter(Procedure.clinic_id == clinic_id)
-#     .count()
-# )
-    
-#     procedures = (
-#     db.query(Procedure)
-#     .filter(Procedure.clinic_id == clinic_id)
-#     .offset(skip)
-#     .limit(page_size)
-#     .all()
-# )
-
-#     statistics = statistics_procedures(db, clinic_id)
-    
-#     return {
-#     "items": procedures,
-#     "page": page,
-#     "page_size": page_size,
-#     "total": total,
-#     "total_pages": math.ceil(total / page_size),
-#     "statistics": statistics    
-# }
-
 def get_procedures_by_clinic_id(
     db: Session,
     clinic_id: int,
@@ -98,6 +63,7 @@ def get_procedures_by_clinic_id(
 
     procedures = (
         query
+        .order_by(Procedure.name)
         .offset(skip)
         .limit(page_size)
         .all()

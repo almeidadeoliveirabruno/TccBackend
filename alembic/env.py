@@ -28,7 +28,7 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    return config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+    return settings.DATABASE_URL
 
 
 def run_migrations_offline() -> None:

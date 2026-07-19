@@ -13,7 +13,7 @@ class User(Base):
     )
 
     email = Column(
-        String,
+        String(255),
         unique=True,
         nullable=False
     )

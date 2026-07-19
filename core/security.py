@@ -43,12 +43,7 @@ from cryptography.fernet import Fernet, InvalidToken
 # --- Hash para duplicidade/busca (determinístico, NÃO reversível) ---
 CPF_PEPPER = os.getenv("CPF_HASH_PEPPER", "change-this-pepper-in-env")
  
-# --- Criptografia reversível (para exibir o CPF de volta quando necessário) ---
-# Gere uma chave com:
-#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-# e guarde em CPF_ENCRYPTION_KEY (variável de ambiente / secrets manager).
-# Trocar essa chave em produção invalida todos os CPFs já criptografados
-# no banco — se isso acontecer, decrypt_cpf() retorna "***" em vez de quebrar.
+
 _CPF_ENCRYPTION_KEY = os.getenv("CPF_ENCRYPTION_KEY")
 if not _CPF_ENCRYPTION_KEY:
     # Fallback só pra dev local. Em produção, isso TEM que vir do ambiente.

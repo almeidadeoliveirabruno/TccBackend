@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, procedure, dentist, dentist_schedule
+from routers import auth, procedure, dentist, dentist_schedule, patient
 from core.config import settings
 from db.database import engine, Base
 import models
@@ -28,6 +28,7 @@ app.include_router(auth.router)
 app.include_router(procedure.router)
 app.include_router(dentist.router)
 app.include_router(dentist_schedule.router)
+app.include_router(patient.router)
 
 
 if __name__ == "__main__":

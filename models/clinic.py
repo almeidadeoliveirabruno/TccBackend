@@ -21,7 +21,7 @@ class Clinic(Base):
     )
 
     cnpj = Column(
-        String,
+        String(18),
         unique=True,
         nullable=False
     )
@@ -38,5 +38,10 @@ class Clinic(Base):
 
     dentists = relationship(
         "Dentist",
+        back_populates="clinic"
+    )
+
+    patients = relationship(
+        "Patient",
         back_populates="clinic"
     )

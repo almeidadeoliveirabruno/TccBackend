@@ -9,6 +9,6 @@ class Specialty(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    name = Column(String, unique=True, nullable=False, index=True)
+    name = Column(String(100), unique=True, nullable=False)
 
     dentists = relationship("Dentist", secondary=dentist_specialties, back_populates="specialties")

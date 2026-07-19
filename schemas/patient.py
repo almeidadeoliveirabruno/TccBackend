@@ -1,0 +1,94 @@
+from datetime import date, datetime
+
+from pydantic import BaseModel, field_validator
+
+
+def validate_birth_date(birth_date: str) -> str:
+    try:
+        parsed_date = datetime.strptime(birth_date, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise ValueError("A data de nascimento deve estar no formato YYYY-MM-DD") from exc
+
+    if parsed_date > date.today():
+        raise ValueError("A data de nascimento não pode ser no futuro")
+
+    return birth_date
+
+
+class PatientCreate(BaseModel):
+    name: str
+    email: str
+    phone: str
+    cpf: str
+    birth_date: str
+    gender: str
+    observations: str | None = None
+    health_plan: str | None = None
+    profession: str | None = None
+    street: str
+    number: str
+    complement: str | None = None
+    neighborhood: str
+    city: str
+    state: str
+    cep: str
+
+    @field_validator("birth_date")
+    @classmethod
+    def validate_birth_date_field(cls, value: str) -> str:
+        return validate_birth_date(value)
+
+
+class PatientUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    cpf: str | None = None
+    birth_date: str | None = None
+    gender: str | None = None
+    observations: str | None = None
+    health_plan: str | None = None
+    profession: str | None = None
+    street: str | None = None
+    number: str | None = None
+    complement: str | None = None
+    neighborhood: str | None = None
+    city: str | None = None
+    state: str | None = None
+    cep: str | None = None
+
+    @field_validator("birth_date")
+    @classmethod
+    def validate_birth_date_field(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        return validate_birth_date(value)
+
+class PatientResponseCard(BaseModel):
+    id: int
+    name: str
+    phone: str
+    email: str | None = None
+
+class PatientResponseDetail(BaseModel):
+    id: int
+    name: str
+    email: str
+    phone: str
+    cpf_hash: str
+    cpf_encrypted: str
+    birth_date: str
+    gender: str
+    observations: str | None = None
+    health_plan: str | None = None
+    profession: str | None = None
+    street: str
+    number: str
+    complement: str | None = None
+    neighborhood: str
+    city: str
+    state: str
+    cep: str
+
+    class Config:
+        from_attributes = True

@@ -24,7 +24,7 @@ router = APIRouter(
 
 
 # Criar procedimento
-@router.post("/", response_model=ProcedureResponse)
+@router.post("/", response_model=ProcedureResponse, status_code=201)
 def create_procedure_endpoint(
     procedure_create: ProcedureCreate,
     db: Session = Depends(get_db),

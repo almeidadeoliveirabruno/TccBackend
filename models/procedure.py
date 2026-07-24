@@ -23,4 +23,8 @@ class Procedure(Base):
         back_populates="procedures"
     )
 
+    appointment_items = relationship(
+        "AppointmentProcedure",
+        back_populates="procedure",
+    )
 

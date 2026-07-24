@@ -1,6 +1,31 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from schemas.dentist_schedule import ScheduleItem
-from models.dentist import DentistStatus
+from enums.DentistStatus import DentistStatus
+
+
+# Essa função é usada para normalizar o valor do status antes de ser validado pelo Pydantic. Ela verifica se o valor é uma instância de DentistStatus, uma string que corresponde a um valor válido do enum, ou uma string que corresponde a um nome de membro do enum. Se o valor não puder ser normalizado, ele é retornado como está.
+def _normalize_status_value(v):
+    if isinstance(v, DentistStatus):
+        return v
+
+    if isinstance(v, str):
+        raw = v.strip()
+        if not raw:
+            return v
+
+        value_map = {member.value: member.value for member in DentistStatus}
+        if raw in value_map:
+            return raw
+
+        enum_lookup = {member.name: member.value for member in DentistStatus}
+        normalized = enum_lookup.get(raw.upper())
+        if normalized:
+            return normalized
+
+        uppercase_lookup = {member.value.upper(): member.value for member in DentistStatus}
+        return uppercase_lookup.get(raw.upper(), raw)
+
+    return v
 
 
 class DentistCreate(BaseModel):
@@ -9,8 +34,13 @@ class DentistCreate(BaseModel):
     phone: str
     cpf: str
     cro: str
-    specialties: list[str] = []  # nomes; o service resolve/cria as linhas em Specialty
+    specialties: list[str] = Field(default_factory=list)  # nomes; o service resolve/cria as linhas em Specialty
     status: DentistStatus = DentistStatus.ATIVO
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def normalize_status(cls, v):
+        return _normalize_status_value(v)
     street: str
     number: str
     complement: str | None = None
@@ -28,6 +58,11 @@ class DentistUpdate(BaseModel):
     cro: str | None = None
     specialties: list[str] | None = None
     status: DentistStatus | None = None
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def normalize_status(cls, v):
+        return _normalize_status_value(v)
     street: str | None = None
     number: str | None = None
     complement: str | None = None
@@ -41,6 +76,11 @@ class DentistStatusUpdate(BaseModel):
     """Schema enxuto pra rota dedicada de troca de status (PATCH /dentists/{id}/status)."""
     status: DentistStatus
 
+    @field_validator("status", mode="before")
+    @classmethod
+    def normalize_status(cls, v):
+        return _normalize_status_value(v)
+
 
 class DentistResponse(BaseModel):
     id: int
@@ -48,7 +88,7 @@ class DentistResponse(BaseModel):
     email: str
     phone: str
     cro: str
-    specialties: list[str] = []
+    specialties: list[str] = Field(default_factory=list)
     status: DentistStatus
     cpf_masked: str
 
@@ -74,7 +114,7 @@ class DentistResponseDetail(BaseModel):
     cro: str
     cpf_hash: str
     cpf_masked: str          
-    specialties: list[str] = []
+    specialties: list[str] = Field(default_factory=list)
     status: DentistStatus
     street: str
     number: str

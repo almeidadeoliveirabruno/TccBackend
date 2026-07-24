@@ -10,6 +10,10 @@ from schemas.dentist import DentistCreate, DentistUpdate
 from core.security import hash_cpf, encrypt_cpf
 
 
+def _normalize_cro(cro: str) -> str:
+    return cro.strip()
+
+
 def get_or_create_specialty(db: Session, name: str) -> Specialty:
     """Busca uma especialidade existente (case-insensitive) ou cria uma nova.
     Mesmo padrao do get_or_create_schedule ja usado em dentist_schedule_service:
@@ -40,7 +44,22 @@ def create_dentist(
     clinic_id: str,
 ):
     cpf_hash = hash_cpf(dentist_create.cpf)
+    normalized_cro = _normalize_cro(dentist_create.cro)
 
+    existing_cro = (
+        db.query(Dentist)
+        .filter(
+            func.lower(func.trim(Dentist.cro)) == normalized_cro.lower(),
+            Dentist.clinic_id == clinic_id,
+        )
+        .first()
+    )
+    if existing_cro:
+        raise HTTPException(
+            status_code=409,
+            detail="Já existe um dentista com esse CRO cadastrado nesta clínica",
+        )
+    
     existing_dentist = (
         db.query(Dentist)
         .filter(Dentist.cpf_hash == cpf_hash, Dentist.clinic_id == clinic_id)
@@ -61,7 +80,7 @@ def create_dentist(
         email=dentist_create.email,
         phone=dentist_create.phone,
         clinic_id=clinic_id,
-        cro=dentist_create.cro,
+        cro=normalized_cro,
         specialties=specialties,
         street=dentist_create.street,
         number=dentist_create.number,
@@ -143,9 +162,27 @@ def update_dentist(
 ):
     dentist = get_dentist_by_id(db, dentist_id, clinic_id)
 
-    data = dentist_update.model_dump(exclude_unset=True, exclude={"specialties"})
+    data = dentist_update.model_dump(exclude_unset=True, exclude={"specialties", "cro"})
     for key, value in data.items():
         setattr(dentist, key, value)
+
+    if dentist_update.cro is not None:
+        normalized_cro = _normalize_cro(dentist_update.cro)
+        existing_cro = (
+            db.query(Dentist)
+            .filter(
+                Dentist.id != dentist_id,
+                Dentist.clinic_id == clinic_id,
+                func.lower(func.trim(Dentist.cro)) == normalized_cro.lower(),
+            )
+            .first()
+        )
+        if existing_cro:
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um dentista com esse CRO cadastrado nesta clínica",
+            )
+        dentist.cro = normalized_cro
 
     if dentist_update.specialties is not None:
         dentist.specialties = _resolve_specialties(db, dentist_update.specialties)

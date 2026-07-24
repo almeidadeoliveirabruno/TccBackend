@@ -6,8 +6,13 @@ from sqlalchemy import func
 from fastapi import HTTPException
 
 from models.patient import Patient
-from schemas.patient import PatientCreate, PatientUpdate
-from core.security import hash_cpf, encrypt_cpf
+from schemas.patient import (
+    PatientCreate,
+    PatientUpdate,
+    PatientResponseCard,
+    PatientResponseDetail,
+)
+from core.security import hash_cpf, encrypt_cpf, decrypt_cpf
 
 
 def validate_birth_date_not_future(birth_date: str) -> None:
@@ -20,11 +25,35 @@ def validate_birth_date_not_future(birth_date: str) -> None:
         raise HTTPException(status_code=422, detail="A data de nascimento não pode ser no futuro")
 
 
+def _to_patient_detail(patient: Patient, cpf_plain: str | None = None) -> PatientResponseDetail:
+    """Monta a resposta de detalhe, descriptografando o CPF quando não veio pronto."""
+    cpf = cpf_plain if cpf_plain is not None else decrypt_cpf(patient.cpf_encrypted)
+    return PatientResponseDetail(
+        id=patient.id,
+        name=patient.name,
+        email=patient.email,
+        phone=patient.phone,
+        cpf=cpf,
+        birth_date=patient.birth_date,
+        gender=patient.gender,
+        observations=patient.observations,
+        health_plan=patient.health_plan,
+        profession=patient.profession,
+        street=patient.street,
+        number=patient.number,
+        complement=patient.complement,
+        neighborhood=patient.neighborhood,
+        city=patient.city,
+        state=patient.state,
+        cep=patient.cep,
+    )
+
+
 def create_patient(
     db: Session,
     patient_create: PatientCreate,
     clinic_id: str
-):
+) -> PatientResponseDetail:
     validate_birth_date_not_future(patient_create.birth_date)
 
     cpf_hash = hash_cpf(patient_create.cpf)
@@ -63,9 +92,13 @@ def create_patient(
 
     db.add(patient)
     db.flush()
-    return patient
+
+    # já temos o CPF em mãos (patient_create.cpf), não precisa descriptografar de novo
+    return _to_patient_detail(patient, cpf_plain=patient_create.cpf)
+
 
 def get_patient_by_id(db: Session, patient_id: int, clinic_id: str) -> Patient:
+    """Retorna o objeto ORM cru. Usado internamente por update/delete/detail."""
     patient = (
         db.query(Patient)
         .filter(Patient.id == patient_id, Patient.clinic_id == clinic_id)
@@ -77,6 +110,12 @@ def get_patient_by_id(db: Session, patient_id: int, clinic_id: str) -> Patient:
             detail="Paciente não encontrado nesta clínica",
         )
     return patient
+
+
+def get_patient_detail(db: Session, patient_id: int, clinic_id: str) -> PatientResponseDetail:
+    """Usado pela rota GET /{patient_id} — já vem com o CPF descriptografado."""
+    patient = get_patient_by_id(db, patient_id, clinic_id)
+    return _to_patient_detail(patient)
 
 
 def get_patients_by_clinic_id(
@@ -107,7 +146,7 @@ def get_patients_by_clinic_id(
     )
 
     return {
-        "items": patients,
+        "items": [PatientResponseCard.model_validate(p) for p in patients],
         "page": page,
         "page_size": page_size,
         "total": total,
@@ -122,19 +161,27 @@ def update_patient(
     patient_id: int,
     patient_update: PatientUpdate,
     clinic_id: str
-):
+) -> PatientResponseDetail:
     patient = get_patient_by_id(db, patient_id, clinic_id)
 
     if patient_update.birth_date:
         validate_birth_date_not_future(patient_update.birth_date)
 
     data = patient_update.model_dump(exclude_unset=True)
+
+    # se o CPF foi atualizado, recalcula hash e criptografado
+    if "cpf" in data:
+        new_cpf = data.pop("cpf")
+        patient.cpf_hash = hash_cpf(new_cpf)
+        patient.cpf_encrypted = encrypt_cpf(new_cpf)
+
     for field, value in data.items():
         setattr(patient, field, value)
 
     db.flush()
 
-    return patient
+    return _to_patient_detail(patient)
+
 
 def delete_patient(
     db: Session,
@@ -146,6 +193,7 @@ def delete_patient(
     db.delete(patient)
     db.flush()
 
+
 def search_patients(db: Session, search_query: str, clinic_id: str):
     return (
         db.query(Patient)
@@ -156,4 +204,3 @@ def search_patients(db: Session, search_query: str, clinic_id: str):
         )
         .all()
     )
-

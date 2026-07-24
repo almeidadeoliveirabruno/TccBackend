@@ -3,13 +3,8 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Enum as SqlEnum, Uni
 from sqlalchemy.orm import relationship
 from db.database import Base
 from models.associations.dentist_specialties import dentist_specialties
+from enums.DentistStatus import DentistStatus
 
-
-class DentistStatus(str, enum.Enum):
-    ATIVO = "ativo"
-    INATIVO = "inativo"
-    FERIAS = "ferias"
-    AFASTADO = "afastado"
 
 
 class Dentist(Base):
@@ -86,6 +81,11 @@ class Dentist(Base):
         "Specialty",
         secondary=dentist_specialties,
         back_populates="dentists"
+    )
+
+    appointments = relationship(
+        "Appointment",
+        back_populates="dentist"
     )
 
 

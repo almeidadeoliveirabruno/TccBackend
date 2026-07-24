@@ -28,7 +28,7 @@ def create_patient_route(
 ):
     return create_patient(db, patient_data, clinic_id)
 
-@router.get("", response_model=PaginatedResponse[PatientResponseDetail])
+@router.get("", response_model=PaginatedResponse[PatientResponseCard])
 def list_patients_route(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),

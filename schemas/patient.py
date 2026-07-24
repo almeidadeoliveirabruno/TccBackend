@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 
 def validate_birth_date(birth_date: str) -> str:
@@ -17,7 +17,7 @@ def validate_birth_date(birth_date: str) -> str:
 
 class PatientCreate(BaseModel):
     name: str
-    email: str
+    email: EmailStr
     phone: str
     cpf: str
     birth_date: str
@@ -41,7 +41,7 @@ class PatientCreate(BaseModel):
 
 class PatientUpdate(BaseModel):
     name: str | None = None
-    email: str | None = None
+    email: EmailStr | None = None
     phone: str | None = None
     cpf: str | None = None
     birth_date: str | None = None
@@ -64,19 +64,24 @@ class PatientUpdate(BaseModel):
             return value
         return validate_birth_date(value)
 
+
 class PatientResponseCard(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     phone: str
     email: str | None = None
 
+
 class PatientResponseDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     email: str
     phone: str
-    cpf_hash: str
-    cpf_encrypted: str
+    cpf: str
     birth_date: str
     gender: str
     observations: str | None = None
@@ -89,6 +94,3 @@ class PatientResponseDetail(BaseModel):
     city: str
     state: str
     cep: str
-
-    class Config:
-        from_attributes = True

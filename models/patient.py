@@ -58,3 +58,8 @@ class Patient(Base):
         "Clinic",
         back_populates="patients"
     )
+
+    appointments = relationship(
+        "Appointment",
+        back_populates="patient"
+    )

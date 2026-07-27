@@ -113,12 +113,6 @@ class Appointment(Base):
         return self.procedure_items
 
     __table_args__ = (
-        UniqueConstraint(
-            "dentist_id",
-            "appointment_date",
-            "time_begin",
-            name="uq_dentist_date_time_begin",
-        ),
         CheckConstraint(
             "time_end > time_begin",
             name="ck_appointment_time_valid",

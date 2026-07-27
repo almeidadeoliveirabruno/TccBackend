@@ -4,5 +4,8 @@ from .dentist import Dentist
 from .appointment import Appointment
 from .procedure import Procedure
 from .schedule import Schedule
+from .patient import Patient
+from .specialty import Specialty
+from .associations.dentist_specialties import dentist_specialties
 from .associations.appointment_procedure import AppointmentProcedure
 from .associations.dentist_schedules import DentistSchedule

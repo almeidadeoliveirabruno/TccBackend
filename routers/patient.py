@@ -15,7 +15,8 @@ from services.patient_service import (
     update_patient,
     delete_patient,
     get_patient_by_id,
-    get_patients_by_clinic_id
+    get_patients_by_clinic_id,
+    get_patient_detail
 )
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -46,7 +47,7 @@ def get_patient_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
-    return get_patient_by_id(db, patient_id, clinic_id)
+    return get_patient_detail(db, patient_id, clinic_id)
 
 
 @router.put("/{patient_id}", response_model=PatientResponseDetail)

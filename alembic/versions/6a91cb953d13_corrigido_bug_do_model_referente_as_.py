@@ -1,8 +1,8 @@
-"""Dentista atualizado com os novos relacionamentos
+"""Corrigido bug do model referente as colunas unicas
 
-Revision ID: 3557a5e1e44e
-Revises: 
-Create Date: 2026-07-14 21:46:20.191951
+Revision ID: 6a91cb953d13
+Revises: bef5f76b1351
+Create Date: 2026-07-27 17:58:31.069546
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '3557a5e1e44e'
-down_revision: Union[str, Sequence[str], None] = None
+revision: str = '6a91cb953d13'
+down_revision: Union[str, Sequence[str], None] = 'bef5f76b1351'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

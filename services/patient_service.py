@@ -112,6 +112,8 @@ def get_patient_by_id(db: Session, patient_id: int, clinic_id: str) -> Patient:
     return patient
 
 
+
+
 def get_patient_detail(db: Session, patient_id: int, clinic_id: str) -> PatientResponseDetail:
     """Usado pela rota GET /{patient_id} — já vem com o CPF descriptografado."""
     patient = get_patient_by_id(db, patient_id, clinic_id)
@@ -172,7 +174,27 @@ def update_patient(
     # se o CPF foi atualizado, recalcula hash e criptografado
     if "cpf" in data:
         new_cpf = data.pop("cpf")
-        patient.cpf_hash = hash_cpf(new_cpf)
+
+        new_cpf_hash = hash_cpf(new_cpf)
+
+        # verifica se outro paciente já possui esse CPF na mesma clínica
+        existing_patient = (
+            db.query(Patient)
+            .filter(
+                Patient.cpf_hash == new_cpf_hash,
+                Patient.clinic_id == clinic_id,
+                Patient.id != patient.id
+            )
+            .first()
+        )
+
+        if existing_patient:
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um paciente com esse CPF cadastrado nesta clínica",
+            )
+
+        patient.cpf_hash = new_cpf_hash
         patient.cpf_encrypted = encrypt_cpf(new_cpf)
 
     for field, value in data.items():

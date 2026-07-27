@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint, DateTime
+from datetime import datetime
 from db.database import Base
 from sqlalchemy.orm import relationship
 
@@ -28,7 +29,7 @@ class Patient(Base):
 
     observations = Column(String, nullable=True)
     health_plan = Column(String, nullable=True)
-    profession = Column(String, nullable=False)
+    profession = Column(String, nullable=True)
 
     street = Column(String, nullable=False)
     number = Column(String, nullable=False)
@@ -62,4 +63,10 @@ class Patient(Base):
     appointments = relationship(
         "Appointment",
         back_populates="patient"
+    )
+
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow
     )

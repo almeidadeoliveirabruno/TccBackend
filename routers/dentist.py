@@ -19,6 +19,7 @@ from services.dentist_service import (
     delete_dentist,
     update_dentist_status,
     get_distinct_specialties,
+    get_dentist_detail
 )
 from services.dentist_schedule_service import create_dentist_schedules
 
@@ -75,7 +76,7 @@ def get_dentist_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
-    return get_dentist_by_id(db, dentist_id, clinic_id)
+    return get_dentist_detail(db, dentist_id, clinic_id)
 
 
 @router.put("/{dentist_id}", response_model=DentistResponseDetail)

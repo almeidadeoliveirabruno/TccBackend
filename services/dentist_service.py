@@ -6,13 +6,38 @@ from fastapi import HTTPException
 from models.dentist import Dentist, DentistStatus
 from models.specialty import Specialty
 from models.associations.dentist_specialties import dentist_specialties
-from schemas.dentist import DentistCreate, DentistUpdate
-from core.security import hash_cpf, encrypt_cpf
+from schemas.dentist import DentistCreate, DentistUpdate, DentistResponseDetail
+from core.security import hash_cpf, encrypt_cpf, decrypt_cpf
 
 
 def _normalize_cro(cro: str) -> str:
     return cro.strip()
 
+def _to_dentist_detail(dentist: Dentist, cpf_plain: str | None = None) -> DentistResponseDetail:
+    """Monta a resposta de detalhe, descriptografando o CPF quando não veio pronto."""
+    cpf = cpf_plain if cpf_plain is not None else decrypt_cpf(dentist.cpf_encrypted)
+    return DentistResponseDetail(
+            id= dentist.id,
+            name= dentist.name,
+            email= dentist.email,
+            phone= dentist.phone,
+            cro= dentist.cro,
+            cpf= dentist.cpf, 
+            specialties= dentist.specialties,
+            status= dentist.status,
+            street= dentist.street,
+            number= dentist.number,
+            complement= dentist.complement,
+            neighborhood= dentist.neighborhood,
+            city= dentist.city,
+            state= dentist.state,
+            cep= dentist.cep
+    )
+
+def get_dentist_detail(db: Session, dentist_id: int, clinic_id: str) -> DentistResponseDetail:
+    """Usado pela rota GET /{patient_id} — já vem com o CPF descriptografado."""
+    dentist = get_dentist_by_id(db, dentist_id, clinic_id)
+    return _to_dentist_detail(dentist)
 
 def get_or_create_specialty(db: Session, name: str) -> Specialty:
     """Busca uma especialidade existente (case-insensitive) ou cria uma nova.
@@ -95,12 +120,6 @@ def create_dentist(
     db.add(dentist)
     db.flush()
 
-    # Nota: criacao de `schedules` na mesma chamada nao esta feita aqui de
-    # proposito — o service de dentist_schedule ja existe e valida tudo
-    # certinho (get_or_create_schedule, association_exists, etc). Melhor
-    # a rota chamar create_dentist_schedules() logo em seguida, dentro da
-    # mesma transacao, do que duplicar essa logica aqui.
-
     return dentist
 
 
@@ -113,6 +132,7 @@ def get_dentist_by_id(db: Session, dentist_id: int, clinic_id: str) -> Dentist:
     if not dentist:
         raise HTTPException(status_code=404, detail="Dentista não encontrado")
     return dentist
+    
 
 
 def get_dentists_by_clinic_id(
@@ -162,12 +182,42 @@ def update_dentist(
 ):
     dentist = get_dentist_by_id(db, dentist_id, clinic_id)
 
-    data = dentist_update.model_dump(exclude_unset=True, exclude={"specialties", "cro"})
+    data = dentist_update.model_dump(
+        exclude_unset=True,
+        exclude={"specialties", "cro", "cpf"},
+    )
+
+    # Atualiza CPF caso tenha sido enviado
+    if dentist_update.cpf is not None:
+        new_cpf_hash = hash_cpf(dentist_update.cpf)
+
+        existing_dentist = (
+            db.query(Dentist)
+            .filter(
+                Dentist.cpf_hash == new_cpf_hash,
+                Dentist.clinic_id == clinic_id,
+                Dentist.id != dentist.id,
+            )
+            .first()
+        )
+
+        if existing_dentist:
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um dentista com esse CPF cadastrado nesta clínica",
+            )
+
+        dentist.cpf_hash = new_cpf_hash
+        dentist.cpf_encrypted = encrypt_cpf(dentist_update.cpf)
+
+    # Atualiza campos normais
     for key, value in data.items():
         setattr(dentist, key, value)
 
+    # Atualiza CRO
     if dentist_update.cro is not None:
         normalized_cro = _normalize_cro(dentist_update.cro)
+
         existing_cro = (
             db.query(Dentist)
             .filter(
@@ -177,17 +227,24 @@ def update_dentist(
             )
             .first()
         )
+
         if existing_cro:
             raise HTTPException(
                 status_code=409,
                 detail="Já existe um dentista com esse CRO cadastrado nesta clínica",
             )
+
         dentist.cro = normalized_cro
 
+    # Atualiza especialidades
     if dentist_update.specialties is not None:
-        dentist.specialties = _resolve_specialties(db, dentist_update.specialties)
+        dentist.specialties = _resolve_specialties(
+            db,
+            dentist_update.specialties
+        )
 
     db.flush()
+
     return dentist
 
 

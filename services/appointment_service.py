@@ -510,7 +510,7 @@ def get_available_times(
                 )
 
             # Intervalo padrão entre horários.
-            current += timedelta(minutes=30)
+            current += timedelta(minutes=15)
 
     return available
 

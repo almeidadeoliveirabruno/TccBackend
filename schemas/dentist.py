@@ -58,6 +58,7 @@ class DentistUpdate(BaseModel):
     cro: str | None = None
     specialties: list[str] | None = None
     status: DentistStatus | None = None
+    cpf: str | None = None
 
     @field_validator("status", mode="before")
     @classmethod
@@ -88,9 +89,9 @@ class DentistResponse(BaseModel):
     email: str
     phone: str
     cro: str
+    '''Se ninguém enviar specialties, o Pydantic vai executar list() e criar uma nova lista vazia para aquele objeto.'''
     specialties: list[str] = Field(default_factory=list)
     status: DentistStatus
-    cpf_masked: str
 
     # O relationship `specialties` do model retorna objetos Specialty, nao
     # strings. Esse validator converte antes da validacao do Pydantic.
@@ -112,8 +113,7 @@ class DentistResponseDetail(BaseModel):
     email: str
     phone: str
     cro: str
-    cpf_hash: str
-    cpf_masked: str          
+    cpf: str       
     specialties: list[str] = Field(default_factory=list)
     status: DentistStatus
     street: str

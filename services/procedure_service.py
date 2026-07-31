@@ -110,23 +110,22 @@ def update_procedure(
         clinic_id
     )
 
-    if not procedure:
-        raise HTTPException(
-            status_code=404,
-            detail="Procedimento não encontrado"
-        )
-
     if procedure.clinic_id != clinic_id:
         raise HTTPException(
             status_code=403,
             detail="Você não tem permissão para atualizar este procedimento"
         )
 
-# O método model_dump do Pydantic é usado para converter o objeto de atualização em um dicionário, excluindo os campos que não foram definidos (exclude_unset=True). Em seguida, o código itera sobre os itens do dicionário e usa setattr para atualizar os atributos do procedimento com os novos valores fornecidos.
     data = procedure_update.model_dump(exclude_unset=True)
 
     for key, value in data.items():
+        if key == "name":
+            value = value.title()
+
         setattr(procedure, key, value)
+
+    db.flush()
+    db.refresh(procedure)
 
     return procedure
 

@@ -10,7 +10,6 @@ from sqlalchemy import (
     Integer,
     String,
     Time,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 

@@ -34,6 +34,63 @@ def _to_dentist_detail(dentist: Dentist, cpf_plain: str | None = None) -> Dentis
             cep= dentist.cep
     )
 
+def _check_duplicate_fields(
+    db: Session,
+    clinic_id: str,
+    exclude_id: int | None = None,
+    cpf: str | None = None,
+    cro: str | None = None,
+    email: str | None = None,
+) -> None:
+    """
+    Verifica se já existe um dentista na mesma clínica com o mesmo CPF, CRO ou e‑mail.
+    Se `exclude_id` for fornecido, esse dentista é ignorado (usado no update).
+    Lança HTTPException (409) se alguma duplicata for encontrada.
+    """
+    if cpf is not None:
+        cpf_hash = hash_cpf(cpf)
+        query = db.query(Dentist).filter(
+            Dentist.cpf_hash == cpf_hash,
+            Dentist.clinic_id == clinic_id,
+        )
+        if exclude_id is not None:
+            query = query.filter(Dentist.id != exclude_id)
+        if query.first():
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um dentista com esse CPF cadastrado nesta clínica",
+            )
+
+    if cro is not None:
+        normalized_cro = _normalize_cro(cro)
+        query = db.query(Dentist).filter(
+            func.lower(func.trim(Dentist.cro)) == normalized_cro.lower(),
+            Dentist.clinic_id == clinic_id,
+        )
+        if exclude_id is not None:
+            query = query.filter(Dentist.id != exclude_id)
+        if query.first():
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um dentista com esse CRO cadastrado nesta clínica",
+            )
+
+    if email is not None:
+        # E‑mail normalmente é case‑insensitive, mas pode ser exato ou lower()
+        query = db.query(Dentist).filter(
+            func.lower(Dentist.email) == email.lower(),
+            Dentist.clinic_id == clinic_id,
+        )
+        if exclude_id is not None:
+            query = query.filter(Dentist.id != exclude_id)
+        if query.first():
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um dentista com esse e‑mail cadastrado nesta clínica",
+            )
+
+
+
 def get_dentist_detail(db: Session, dentist_id: int, clinic_id: str) -> DentistResponseDetail:
     """Usado pela rota GET /{patient_id} — já vem com o CPF descriptografado."""
     dentist = get_dentist_by_id(db, dentist_id, clinic_id)
@@ -63,39 +120,18 @@ def _resolve_specialties(db: Session, names: list[str]) -> list[Specialty]:
     return [get_or_create_specialty(db, name) for name in unique_names]
 
 
-def create_dentist(
-    db: Session,
-    dentist_create: DentistCreate,
-    clinic_id: str,
-):
+def create_dentist(db: Session, dentist_create: DentistCreate, clinic_id: str):
+    # Verifica duplicatas de CPF, CRO e e‑mail
+    _check_duplicate_fields(
+        db=db,
+        clinic_id=clinic_id,
+        cpf=dentist_create.cpf,
+        cro=dentist_create.cro,
+        email=dentist_create.email,
+    )
+
     cpf_hash = hash_cpf(dentist_create.cpf)
     normalized_cro = _normalize_cro(dentist_create.cro)
-
-    existing_cro = (
-        db.query(Dentist)
-        .filter(
-            func.lower(func.trim(Dentist.cro)) == normalized_cro.lower(),
-            Dentist.clinic_id == clinic_id,
-        )
-        .first()
-    )
-    if existing_cro:
-        raise HTTPException(
-            status_code=409,
-            detail="Já existe um dentista com esse CRO cadastrado nesta clínica",
-        )
-    
-    existing_dentist = (
-        db.query(Dentist)
-        .filter(Dentist.cpf_hash == cpf_hash, Dentist.clinic_id == clinic_id)
-        .first()
-    )
-    if existing_dentist:
-        raise HTTPException(
-            status_code=409,
-            detail="Já existe um dentista com esse CPF cadastrado nesta clínica",
-        )
-
     specialties = _resolve_specialties(db, dentist_create.specialties)
 
     dentist = Dentist(
@@ -119,7 +155,6 @@ def create_dentist(
 
     db.add(dentist)
     db.flush()
-
     return dentist
 
 
@@ -182,69 +217,40 @@ def update_dentist(
 ):
     dentist = get_dentist_by_id(db, dentist_id, clinic_id)
 
+    # ===== Verificação centralizada de duplicatas =====
+    # Passamos apenas os campos que foram enviados (não None)
+    _check_duplicate_fields(
+        db=db,
+        clinic_id=clinic_id,
+        exclude_id=dentist.id,       # ignora o próprio dentista na consulta
+        cpf=dentist_update.cpf,
+        cro=dentist_update.cro,
+        email=dentist_update.email,
+    )
+
+    # ===== Atualização dos campos simples =====
+    # Excluímos os campos que tratamos separadamente (specialties, cro, cpf)
     data = dentist_update.model_dump(
         exclude_unset=True,
         exclude={"specialties", "cro", "cpf"},
     )
-
-    # Atualiza CPF caso tenha sido enviado
-    if dentist_update.cpf is not None:
-        new_cpf_hash = hash_cpf(dentist_update.cpf)
-
-        existing_dentist = (
-            db.query(Dentist)
-            .filter(
-                Dentist.cpf_hash == new_cpf_hash,
-                Dentist.clinic_id == clinic_id,
-                Dentist.id != dentist.id,
-            )
-            .first()
-        )
-
-        if existing_dentist:
-            raise HTTPException(
-                status_code=409,
-                detail="Já existe um dentista com esse CPF cadastrado nesta clínica",
-            )
-
-        dentist.cpf_hash = new_cpf_hash
-        dentist.cpf_encrypted = encrypt_cpf(dentist_update.cpf)
-
-    # Atualiza campos normais
     for key, value in data.items():
         setattr(dentist, key, value)
 
-    # Atualiza CRO
+    # ===== Atualização do CPF (se fornecido) =====
+    if dentist_update.cpf is not None:
+        dentist.cpf_hash = hash_cpf(dentist_update.cpf)
+        dentist.cpf_encrypted = encrypt_cpf(dentist_update.cpf)
+
+    # ===== Atualização do CRO (se fornecido) =====
     if dentist_update.cro is not None:
-        normalized_cro = _normalize_cro(dentist_update.cro)
+        dentist.cro = _normalize_cro(dentist_update.cro)
 
-        existing_cro = (
-            db.query(Dentist)
-            .filter(
-                Dentist.id != dentist_id,
-                Dentist.clinic_id == clinic_id,
-                func.lower(func.trim(Dentist.cro)) == normalized_cro.lower(),
-            )
-            .first()
-        )
-
-        if existing_cro:
-            raise HTTPException(
-                status_code=409,
-                detail="Já existe um dentista com esse CRO cadastrado nesta clínica",
-            )
-
-        dentist.cro = normalized_cro
-
-    # Atualiza especialidades
+    # ===== Atualização das especialidades (se fornecidas) =====
     if dentist_update.specialties is not None:
-        dentist.specialties = _resolve_specialties(
-            db,
-            dentist_update.specialties
-        )
+        dentist.specialties = _resolve_specialties(db, dentist_update.specialties)
 
     db.flush()
-
     return dentist
 
 

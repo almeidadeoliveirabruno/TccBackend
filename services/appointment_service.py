@@ -9,6 +9,7 @@ Responsabilidades:
 """
 
 from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_
@@ -21,7 +22,7 @@ from models.dentist import Dentist, DentistStatus
 from models.patient import Patient
 from models.procedure import Procedure
 from models.schedule import Schedule
-
+import math
 from schemas.appointment import (
     AppointmentCreate,
     AppointmentUpdate,
@@ -161,6 +162,25 @@ def _total_duration(
         procedure.duration
         for procedure in procedures
     )
+
+
+def _procedures_price_map(
+    procedures: list[Procedure],
+) -> dict[int, Decimal]:
+    """
+    Mapa procedure_id -> preço (Decimal).
+
+    Usado para travar o valor do procedimento no
+    momento do agendamento (unit_price), já que
+    Procedure.price pode mudar depois. Procedure.price
+    já é Numeric/Decimal no banco, então não precisa
+    de conversão via str().
+    """
+
+    return {
+        procedure.id: procedure.price
+        for procedure in procedures
+    }
 
 
 def _compute_time_end(
@@ -324,7 +344,7 @@ def create_appointment(
     5. Valida expediente.
     6. Valida conflitos.
     7. Cria Appointment.
-    8. Cria AppointmentProcedure.
+    8. Cria AppointmentProcedure (travando unit_price).
     """
 
     _get_dentist_or_404(
@@ -399,6 +419,10 @@ def create_appointment(
     # Gera o ID antes de criar as associações.
     db.flush()
 
+    # Mapa procedure_id -> preço, para travar o
+    # valor no momento do agendamento.
+    price_map = _procedures_price_map(procedures)
+
     # Cria os vínculos com os procedimentos.
     for item in appointment_create.procedures:
 
@@ -406,6 +430,7 @@ def create_appointment(
             AppointmentProcedure(
                 procedure_id=item.procedure_id,
                 tooth=item.tooth,
+                unit_price=price_map[item.procedure_id],
             )
         )
 
@@ -682,12 +707,17 @@ def update_appointment(
 
         appointment.procedure_items.clear()
 
+        # Recalcula os preços apenas quando os
+        # procedimentos foram de fato alterados.
+        price_map = _procedures_price_map(procedures)
+
         for item in appointment_update.procedures:
 
             appointment.procedure_items.append(
                 AppointmentProcedure(
                     procedure_id=item.procedure_id,
                     tooth=item.tooth,
+                    unit_price=price_map[item.procedure_id],
                 )
             )
 
@@ -797,3 +827,75 @@ def delete_appointment(
     appointment.status = AppointmentStatus.CANCELADO
 
     db.flush()
+
+
+# ==========================================================
+# QUERYS
+# ==========================================================
+
+#Implementar lógica para somar o valor dos procedimentos
+
+def sum_procedures():
+    pass
+
+def get_appointments_by_clinic_id_for_table(
+    db: Session,
+    clinic_id: str,
+    page: int = 1,
+    page_size: int = 10,
+    dentist: str | None = None,
+    patient: str | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    status: AppointmentStatus | None = None,
+):
+    skip = (page - 1) * page_size
+
+    query = db.query(Appointment).filter(Appointment.clinic_id == clinic_id)
+
+    if dentist:
+        like = f"%{dentist}%"
+
+        query = (
+            query.join(Appointment.dentist)
+                .filter(
+                        Dentist.name.ilike(like)
+                )
+        )
+
+    if patient:
+        like = f"%{patient}%"
+        query = (
+                    query.join(Appointment.patient)
+                        .filter(
+                                Patient.name.ilike(like),
+                        )
+                )
+
+    if start_date:
+        query = query.filter(
+            Appointment.appointment_date >= start_date
+        )
+
+    if end_date:
+        query = query.filter(
+                    Appointment.appointment_date <= end_date
+                )
+        
+    if status:
+        query = query.filter(Appointment.status == status)
+    
+    total = query.count()
+
+    appointments = query.order_by(Appointment.appointment_date).offset(skip).limit(page_size).all()
+
+    return {
+            "items": [appointments],
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": max(1, math.ceil(total / page_size)) if total else 1,
+            "statistics": {
+                "total_patients": total 
+            }
+        }

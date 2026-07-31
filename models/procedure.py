@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float,  Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Numeric,  Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from db.database import Base
 
@@ -8,7 +8,7 @@ class Procedure(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     category = Column(String, nullable=False)
-    price = Column(Float, nullable=False)
+    price = Column(Numeric(10, 2), nullable=False)
     duration = Column(Integer, nullable=True)
     description = Column(String)
     status = Column(Boolean, default=True)

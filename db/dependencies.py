@@ -68,5 +68,23 @@ def get_current_user(
 
     return user
 
-def get_current_clinic_id(current_user: User = Depends(get_current_user)):
-    return current_user.clinic_id
+# def get_current_clinic_id(current_user: User = Depends(get_current_user)):
+#     return current_user.clinic_id
+
+def get_token_payload(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Invalid credentials"
+    )
+
+    try:
+        return jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+    except JWTError:
+        raise credentials_exception
+
+def get_current_clinic_id(payload=Depends(get_token_payload)):
+    return payload["clinic_id"]

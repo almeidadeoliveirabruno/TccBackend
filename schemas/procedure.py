@@ -1,34 +1,39 @@
-from pydantic import BaseModel
+from decimal import Decimal
+from pydantic import BaseModel, Field, field_serializer
 from enums.ProcedureCategory import ProcedureCategory
 
 
 class ProcedureCreate(BaseModel):
     name: str
     category: ProcedureCategory
-    price: float
+    price: Decimal = Field(max_digits=10, decimal_places=2)
     duration: int | None = None
     description: str | None = None
-    
+
 
 class ProcedureUpdate(BaseModel):
     name: str | None = None
     category: ProcedureCategory | None = None
-    price: float | None = None
+    price: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
     duration: int | None = None
     description: str | None = None
-    
+
 
 class ProcedureResponse(BaseModel):
     id: int
     name: str
     category: ProcedureCategory
-    price: float
+    price: Decimal
     duration: int | None
     description: str | None
 
-#class config é necessária para que o pydantic possa criar um modelo a partir de um objeto SQLAlchemy, permitindo que os dados sejam convertidos corretamente entre os dois formatos. Sem a necessidade de criar um dicionário intermediário, o pydantic pode acessar diretamente os atributos do objeto SQLAlchemy para preencher os campos do modelo de resposta.
     class Config:
         from_attributes = True
+
+    @field_serializer("price")
+    def serialize_price(self, value: Decimal) -> float:
+        return float(value)
+
 
 class ProcedurePaginatedResponse(BaseModel):
     items: list[ProcedureResponse]

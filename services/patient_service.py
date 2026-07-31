@@ -112,8 +112,6 @@ def get_patient_by_id(db: Session, patient_id: int, clinic_id: str) -> Patient:
     return patient
 
 
-
-
 def get_patient_detail(db: Session, patient_id: int, clinic_id: str) -> PatientResponseDetail:
     """Usado pela rota GET /{patient_id} — já vem com o CPF descriptografado."""
     patient = get_patient_by_id(db, patient_id, clinic_id)

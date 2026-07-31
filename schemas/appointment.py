@@ -126,3 +126,25 @@ class AppointmentResponseCard(BaseModel):
             return []
 
         return [item.procedure.name for item in v]
+
+class TableDataLine(BaseModel):
+    id: int
+    pacient_name: str
+    dentist_name: str
+    time_day: str
+    total_price: float
+    status: AppointmentStatus
+    confirmation_message_sent: bool
+
+class TableDetail(BaseModel):
+    id: int
+    pacient_name: str
+    dentist_name: str
+    time_day: str
+    tooths: str
+    total_price: float
+    duration: int
+    status: AppointmentStatus
+    confirmation_message_sent: bool
+    notes: str
+

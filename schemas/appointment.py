@@ -148,3 +148,13 @@ class TableDetail(BaseModel):
     confirmation_message_sent: bool
     notes: str
 
+class TableDataLinePaginatedResponse(BaseModel):
+    items: list[TableDataLine]
+    page: int
+    page_size: int
+    total: int
+    total_pages: int
+    statistics: dict[str, float | int]
+
+    class Config:
+        from_attributes = True

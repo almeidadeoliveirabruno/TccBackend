@@ -19,7 +19,7 @@ from services.dentist_service import (
     delete_dentist,
     update_dentist_status,
     get_distinct_specialties,
-    get_dentist_detail
+    get_dentist_detail,
 )
 from services.dentist_schedule_service import create_dentist_schedules
 
@@ -110,3 +110,4 @@ def delete_dentist_route(
     clinic_id: str = Depends(get_current_clinic_id),
 ):
     delete_dentist(db, dentist_id, clinic_id)
+

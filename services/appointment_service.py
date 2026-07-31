@@ -12,7 +12,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from models.appointment import Appointment, AppointmentStatus
@@ -26,6 +26,8 @@ import math
 from schemas.appointment import (
     AppointmentCreate,
     AppointmentUpdate,
+    TableDataLine,
+    TableDetail,
 )
 
 
@@ -830,13 +832,121 @@ def delete_appointment(
 
 
 # ==========================================================
-# QUERYS
+# QUERYS / TABELA E ESTATÍSTICAS
 # ==========================================================
 
-#Implementar lógica para somar o valor dos procedimentos
 
-def sum_procedures():
-    pass
+def sum_procedures(
+    procedure_items: list[AppointmentProcedure],
+) -> Decimal:
+    """
+    Soma o unit_price de uma lista de AppointmentProcedure.
+
+    unit_price já vem travado no momento do agendamento (ver
+    create_appointment / update_appointment), então essa soma
+    reflete o valor cobrado, não o preço atual de Procedure.
+    """
+
+    return sum(
+        (item.unit_price for item in procedure_items),
+        Decimal("0"),
+    )
+
+
+def _current_month_range() -> tuple[date, date]:
+    """
+    Retorna (início do mês, início do mês seguinte).
+
+    Usado para filtrar "no mês atual" com
+    appointment_date >= inicio AND < inicio_proximo_mes.
+    """
+
+    today = date.today()
+    month_start = today.replace(day=1)
+
+    if month_start.month == 12:
+        next_month_start = month_start.replace(
+            year=month_start.year + 1,
+            month=1,
+        )
+    else:
+        next_month_start = month_start.replace(
+            month=month_start.month + 1,
+        )
+
+    return month_start, next_month_start
+
+
+def _get_table_statistics(
+    db: Session,
+    clinic_id: str,
+) -> dict[str, float | int]:
+    """
+    Estatísticas do mês atual, para os cards do topo da tabela.
+
+    - total_appointments: agendamentos do mês.
+    - no_show_count: quantos foram marcados como falta.
+    - unique_patients: pacientes distintos atendidos no mês.
+    - revenue: soma do unit_price dos agendamentos não
+      cancelados no mês.
+    """
+
+    month_start, next_month_start = _current_month_range()
+
+    month_filter = (
+        Appointment.clinic_id == clinic_id,
+        Appointment.appointment_date >= month_start,
+        Appointment.appointment_date < next_month_start,
+    )
+
+    total_appointments = (
+        db.query(func.count(Appointment.id))
+        .filter(*month_filter)
+        .scalar()
+    )
+
+    # ATENÇÃO: assume que existe AppointmentStatus.FALTOU.
+    # Ajusta o nome do membro do enum caso seja diferente
+    # (ex.: NAO_COMPARECEU).
+    no_show_count = (
+        db.query(func.count(Appointment.id))
+        .filter(
+            *month_filter,
+            Appointment.status == AppointmentStatus.FALTOU,
+        )
+        .scalar()
+    )
+
+    unique_patients = (
+        db.query(func.count(func.distinct(Appointment.patient_id)))
+        .filter(*month_filter)
+        .scalar()
+    )
+
+    revenue = (
+        db.query(
+            func.coalesce(
+                func.sum(AppointmentProcedure.unit_price), 0
+            )
+        )
+        .join(
+            Appointment,
+            Appointment.id == AppointmentProcedure.appointment_id,
+        )
+        .filter(
+            *month_filter,
+            Appointment.status != AppointmentStatus.CANCELADO,
+        )
+        .scalar()
+    )
+
+    return {
+        "total_appointments": total_appointments or 0,
+        "no_show_count": no_show_count or 0,
+        "unique_patients": unique_patients or 0,
+        "revenue": float(revenue or 0),
+    }
+
 
 def get_appointments_by_clinic_id_for_table(
     db: Session,
@@ -849,28 +959,54 @@ def get_appointments_by_clinic_id_for_table(
     end_date: date | None = None,
     status: AppointmentStatus | None = None,
 ):
+    """
+    Lista agendamentos no formato TableDataLine, paginado,
+    junto com as estatísticas para os cards do topo.
+    """
+
     skip = (page - 1) * page_size
 
-    query = db.query(Appointment).filter(Appointment.clinic_id == clinic_id)
+    # Soma de unit_price por agendamento, calculada à parte
+    # e ligada via outerjoin (agendamento sem procedimento
+    # ainda aparece, com total_price = 0).
+    price_subquery = (
+        db.query(
+            AppointmentProcedure.appointment_id.label("appointment_id"),
+            func.sum(AppointmentProcedure.unit_price).label("total_price"),
+        )
+        .group_by(AppointmentProcedure.appointment_id)
+        .subquery()
+    )
+
+    query = (
+        db.query(
+            Appointment.id,
+            Patient.name.label("patient_name"),
+            Dentist.name.label("dentist_name"),
+            Appointment.appointment_date,
+            Appointment.time_begin,
+            Appointment.status,
+            Appointment.confirmation_message_sent,
+            func.coalesce(price_subquery.c.total_price, 0).label(
+                "total_price"
+            ),
+        )
+        .join(Appointment.patient)
+        .join(Appointment.dentist)
+        .outerjoin(
+            price_subquery,
+            price_subquery.c.appointment_id == Appointment.id,
+        )
+        .filter(Appointment.clinic_id == clinic_id)
+    )
 
     if dentist:
         like = f"%{dentist}%"
-
-        query = (
-            query.join(Appointment.dentist)
-                .filter(
-                        Dentist.name.ilike(like)
-                )
-        )
+        query = query.filter(Dentist.name.ilike(like))
 
     if patient:
         like = f"%{patient}%"
-        query = (
-                    query.join(Appointment.patient)
-                        .filter(
-                                Patient.name.ilike(like),
-                        )
-                )
+        query = query.filter(Patient.name.ilike(like))
 
     if start_date:
         query = query.filter(
@@ -879,23 +1015,134 @@ def get_appointments_by_clinic_id_for_table(
 
     if end_date:
         query = query.filter(
-                    Appointment.appointment_date <= end_date
-                )
-        
+            Appointment.appointment_date <= end_date
+        )
+
     if status:
         query = query.filter(Appointment.status == status)
-    
-    total = query.count()
 
-    appointments = query.order_by(Appointment.appointment_date).offset(skip).limit(page_size).all()
+    # order_by(None) evita carregar o ORDER BY dentro do
+    # SELECT COUNT(*) gerado pelo .count().
+    total = query.order_by(None).count()
+
+    rows = (
+        query.order_by(
+            Appointment.appointment_date,
+            Appointment.time_begin,
+        )
+        .offset(skip)
+        .limit(page_size)
+        .all()
+    )
+
+    items = [
+        TableDataLine(
+            id=row.id,
+            pacient_name=row.patient_name,
+            dentist_name=row.dentist_name,
+            time_day=(
+                f"{row.appointment_date.strftime('%d/%m/%Y')} "
+                f"{row.time_begin.strftime('%H:%M')}"
+            ),
+            total_price=float(row.total_price or 0),
+            status=row.status,
+            confirmation_message_sent=row.confirmation_message_sent,
+        )
+        for row in rows
+    ]
 
     return {
-            "items": [appointments],
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "total_pages": max(1, math.ceil(total / page_size)) if total else 1,
-            "statistics": {
-                "total_patients": total 
-            }
-        }
+        "items": items,
+        "page": page,
+        "page_size": page_size,
+        "total": total,
+        "total_pages": max(1, math.ceil(total / page_size)) if total else 1,
+        "statistics": _get_table_statistics(db, clinic_id),
+    }
+
+
+# ==========================================================
+# DETALHE (TableDetail)
+# ==========================================================
+
+
+def _build_appointment_detail(
+    appointment: Appointment,
+) -> TableDetail:
+    """
+    Monta o TableDetail a partir de um Appointment já
+    carregado (com dentist, patient e procedure_items).
+    """
+
+    tooths = ", ".join(
+        item.tooth
+        for item in appointment.procedure_items
+        if item.tooth
+    )
+
+    total_price = sum_procedures(appointment.procedure_items)
+
+    duration = int(
+        (
+            datetime.combine(date.today(), appointment.time_end)
+            - datetime.combine(date.today(), appointment.time_begin)
+        ).total_seconds()
+        // 60
+    )
+
+    return TableDetail(
+        id=appointment.id,
+        pacient_name=appointment.patient.name,
+        dentist_name=appointment.dentist.name,
+        time_day=(
+            f"{appointment.appointment_date.strftime('%d/%m/%Y')} "
+            f"{appointment.time_begin.strftime('%H:%M')}"
+        ),
+        tooths=tooths,
+        total_price=float(total_price),
+        duration=duration,
+        status=appointment.status,
+        confirmation_message_sent=appointment.confirmation_message_sent,
+        notes=appointment.notes or "",
+    )
+
+
+def get_appointment_detail_by_id(
+    db: Session,
+    appointment_id: int,
+    clinic_id: str,
+) -> TableDetail:
+    """
+    Detalhe de um agendamento (tela ao clicar na linha
+    da tabela).
+    """
+
+    appointment = get_appointment_by_id(
+        db,
+        appointment_id,
+        clinic_id,
+    )
+
+    return _build_appointment_detail(appointment)
+
+
+def update_appointment_detail(
+    db: Session,
+    appointment_id: int,
+    appointment_update: AppointmentUpdate,
+    clinic_id: str,
+) -> TableDetail:
+    """
+    Atualiza o agendamento (reaproveita update_appointment,
+    com todas as validações de expediente/conflito já
+    aplicadas) e devolve o resultado no formato TableDetail.
+    """
+
+    appointment = update_appointment(
+        db,
+        appointment_id,
+        appointment_update,
+        clinic_id,
+    )
+
+    return _build_appointment_detail(appointment)

@@ -1,21 +1,47 @@
+import re
 from datetime import date, time
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from models.appointment import AppointmentStatus
 
+# Notação FDI: 2 dígitos numéricos.
+# 1º dígito = quadrante (1-4 dentição permanente, 5-8 dentição decídua)
+# 2º dígito = posição do dente no quadrante (1-8)
+FDI_TOOTH_PATTERN = re.compile(r"^[1-8][1-8]$")
+
+
+def validate_fdi_tooth(v: str | None) -> str | None:
+    if v is None or v == "":
+        return None
+    if not FDI_TOOTH_PATTERN.match(v):
+        raise ValueError(
+            "Dente inválido. Use notação FDI: 2 dígitos numéricos, "
+            "quadrante e posição de 1 a 8 (ex.: 11, 36)."
+        )
+    return v
+
+
 class AppointmentProcedureCreate(BaseModel):
     procedure_id: int
     tooth: str | None = None
+
     @field_validator("tooth")
     @classmethod
     def validate_tooth(cls, v):
-        if v is not None:
-            if len(v) != 2 or not v.isdigit():
-                raise ValueError(
-                    "Dente deve estar no padrão FDI (ex: 11, 36)"
-                )
-        return v
+        return validate_fdi_tooth(v)
+
+
+class AppointmentProcedureUpdate(BaseModel):
+    """Payload para editar depois o dente (FDI) de um procedimento já
+    lançado numa consulta. Enviar tooth=null (ou omitir) limpa o campo."""
+
+    tooth: str | None = None
+
+    @field_validator("tooth")
+    @classmethod
+    def validate_tooth(cls, v):
+        return validate_fdi_tooth(v)
 
 
 class AppointmentCreate(BaseModel):
@@ -81,6 +107,17 @@ class AppointmentProcedureSummary(BaseModel):
     id: int
     tooth: str | None = None
     procedure: ProcedureSummary
+
+
+class AppointmentProcedureOut(BaseModel):
+    """Resposta do PATCH /appointment-procedures/{id}."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    tooth: str | None = None
+    display: str
 
 
 class AppointmentResponse(BaseModel):

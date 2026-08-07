@@ -340,6 +340,7 @@ def get_patient_history(
         for item in appointment.procedure_items:
             procedures.append(
                 {
+                    "id": item.id,  # AppointmentProcedure.id — front usa isso pra editar o dente de cada item individualmente
                     "name": item.procedure.name,
                     "tooth": item.tooth,
                     "display": (

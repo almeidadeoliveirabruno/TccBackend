@@ -108,6 +108,7 @@ class PatientSummaryResponse(BaseModel):
     next_consult: PatientSummaryAppointment | None
 
 class PatientHistoryProcedure(BaseModel):
+    id: int  # AppointmentProcedure.id — usado pelo front pra editar o dente (FDI) individualmente
     name: str
     tooth: str | None
     display: str

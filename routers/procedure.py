@@ -6,7 +6,7 @@ from schemas.procedure import (
     ProcedureCreate,
     ProcedureUpdate,
     ProcedureResponse,
-    ProcedurePaginatedResponse,
+    ProcedurePaginatedResponse
 )
 from services.procedure_service import (
     create_procedure,
@@ -104,5 +104,6 @@ def delete_procedure_endpoint(
     delete_procedure(db, procedure_id, clinic_id)
 
     return {"detail": "Procedimento deletado com sucesso"}
+
 
 

@@ -28,13 +28,18 @@ from schemas.appointment import (
     AppointmentUpdate,
     TableDataLine,
     TableDetail,
+    AppointmentProcedureOut
 )
+from typing import Optional
 
 
 # ==========================================================
 # HELPERS
 # ==========================================================
 
+
+def _build_display(name: str, tooth: Optional[str]) -> str:
+    return f"{name} • Dente {tooth}" if tooth else name
 
 def _get_dentist_or_404(
     db: Session,
@@ -1114,3 +1119,36 @@ def update_appointment_detail(
     )
 
     return _build_appointment_detail(appointment)
+
+def update_procedure_tooth(
+    db: Session,
+    procedure_item_id: int,
+    tooth: Optional[str],
+    clinic_id: str,
+) -> AppointmentProcedureOut:
+    item = (
+        db.query(AppointmentProcedure)
+        .join(Appointment, AppointmentProcedure.appointment_id == Appointment.id)
+        .filter(
+            AppointmentProcedure.id == procedure_item_id,
+            Appointment.clinic_id == clinic_id,
+        )
+        .first()
+    )
+ 
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Procedimento não encontrado.",
+        )
+ 
+    item.tooth = tooth
+    db.commit()
+    db.refresh(item)
+ 
+    return AppointmentProcedureOut(
+        id=item.id,
+        name=item.procedure.name,
+        tooth=item.tooth,
+        display=_build_display(item.procedure.name, item.tooth),
+    )

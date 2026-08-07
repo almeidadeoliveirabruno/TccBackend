@@ -11,8 +11,10 @@ from schemas.appointment import (
     AppointmentResponseCard,
     AppointmentStatusUpdate,
     AppointmentUpdate,
+    AppointmentProcedureUpdate,
+    AppointmentProcedureOut,
     TableDataLinePaginatedResponse,
-    TableDetail,
+    TableDetail
 )
 from services.appointment_service import (
     confirm_appointment,
@@ -26,7 +28,8 @@ from services.appointment_service import (
     update_appointment_status,
     get_appointments_by_clinic_id_for_table,
     get_appointment_detail_by_id,
-    update_appointment_detail
+    update_appointment_detail,
+    update_procedure_tooth as update_procedure_tooth_service,
 )
 
 router = APIRouter(prefix="/appointments", tags=["Appointments"])
@@ -195,8 +198,13 @@ def get_appointment_detail(
     )
 
 
+# Renomeado de update_appointment -> update_appointment_table_route.
+# Antes esse nome sobrescrevia o `update_appointment` importado do
+# service (usado lá em cima, em update_appointment_route), quebrando
+# a rota PUT /{appointment_id} depois que o módulo carregava essa
+# função por último.
 @router.put("/appointments/{appointment_id}", response_model=TableDetail)
-def update_appointment(
+def update_appointment_table_route(
     appointment_update: AppointmentUpdate,
     appointment_id: int ,
     db: Session = Depends(get_db),
@@ -206,5 +214,23 @@ def update_appointment(
         db=db,
         appointment_id=appointment_id,
         appointment_update=appointment_update,
+        clinic_id=clinic_id,
+    )
+
+
+@router.patch("/procedures/{procedure_item_id}/tooth", response_model=AppointmentProcedureOut)
+def update_procedure_tooth_route(
+    procedure_item_id: int,
+    payload: AppointmentProcedureUpdate,
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+):
+    """Atualiza o dente (notação FDI) de um procedimento já lançado
+    numa consulta. Permite ao dentista preencher posteriormente o
+    dente que a recepção não soube informar ao marcar a consulta."""
+    return update_procedure_tooth_service(
+        db=db,
+        procedure_item_id=procedure_item_id,
+        tooth=payload.tooth,
         clinic_id=clinic_id,
     )

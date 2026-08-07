@@ -1,7 +1,7 @@
 from datetime import date, datetime
 import math
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from fastapi import HTTPException
 
@@ -13,6 +13,9 @@ from schemas.patient import (
     PatientResponseDetail,
 )
 from core.security import hash_cpf, encrypt_cpf, decrypt_cpf
+from models.patient import Patient
+from models.appointment import Appointment, AppointmentStatus
+from models import AppointmentProcedure
 
 
 def validate_birth_date_not_future(birth_date: str) -> None:
@@ -219,8 +222,144 @@ def search_patients(db: Session, search_query: str, clinic_id: str):
         db.query(Patient)
         .filter(
             Patient.clinic_id == clinic_id,
-            (Patient.name.ilike(f"%{search_query}%"))
-            | (Patient.cpf_encrypted.ilike(f"%{search_query}%")),
+            Patient.name.ilike(f"%{search_query}%")
         )
         .all()
     )
+
+def get_patient_summary(
+    db: Session,
+    clinic_id: str,
+    patient_id: int,
+):
+    """
+    Retorna a última consulta realizada e a próxima consulta agendada.
+    """
+
+    today = date.today()
+
+    last_consult = (
+        db.query(Appointment)
+        .options(
+            joinedload(Appointment.dentist)
+        )
+        .filter(
+            Appointment.patient_id == patient_id,
+            Appointment.clinic_id == clinic_id,
+            Appointment.status == AppointmentStatus.REALIZADO,
+        )
+        .order_by(
+            Appointment.appointment_date.desc(),
+            Appointment.time_begin.desc(),
+        )
+        .first()
+    )
+
+    next_consult = (
+        db.query(Appointment)
+        .options(
+            joinedload(Appointment.dentist)
+        )
+        .filter(
+            Appointment.patient_id == patient_id,
+            Appointment.clinic_id == clinic_id,
+            Appointment.appointment_date >= today,
+            Appointment.status.in_(
+                [
+                    AppointmentStatus.AGENDADO,
+                    AppointmentStatus.CONFIRMADO,
+                ]
+            ),
+        )
+        .order_by(
+            Appointment.appointment_date.asc(),
+            Appointment.time_begin.asc(),
+        )
+        .first()
+    )
+
+    return {
+        "last_consult": (
+            {
+                "appointment_id": last_consult.id,
+                "date": last_consult.appointment_date,
+                "time_begin": last_consult.time_begin.strftime("%H:%M"),
+                "time_end": last_consult.time_end.strftime("%H:%M"),
+                "dentist": last_consult.dentist.name,
+            }
+            if last_consult
+            else None
+        ),
+        "next_consult": (
+            {
+                "appointment_id": next_consult.id,
+                "date": next_consult.appointment_date,
+                "time_begin": next_consult.time_begin.strftime("%H:%M"),
+                "time_end": next_consult.time_end.strftime("%H:%M"),
+                "dentist": next_consult.dentist.name,
+            }
+            if next_consult
+            else None
+        ),
+    }
+
+def get_patient_history(
+    db: Session,
+    patient_id: int,
+    clinic_id: str
+):
+    """
+    Retorna o histórico de consultas realizadas do paciente.
+    """
+
+    appointments = (
+        db.query(Appointment)
+        .options(
+            joinedload(Appointment.dentist),
+            joinedload(Appointment.procedure_items)
+            .joinedload(AppointmentProcedure.procedure),
+        )
+        .filter(
+            Appointment.patient_id == patient_id,
+            Appointment.clinic_id == clinic_id,
+            Appointment.status == AppointmentStatus.REALIZADO,
+        )
+        .order_by(
+            Appointment.appointment_date.desc(),
+            Appointment.time_begin.desc(),
+        )
+        .all()
+    )
+
+    history = []
+
+    for appointment in appointments:
+
+        procedures = []
+
+        for item in appointment.procedure_items:
+            procedures.append(
+                {
+                    "name": item.procedure.name,
+                    "tooth": item.tooth,
+                    "display": (
+                        f"{item.procedure.name} • Dente {item.tooth}"
+                        if item.tooth
+                        else item.procedure.name
+                    ),
+                }
+            )
+
+        history.append(
+            {
+                "appointment_id": appointment.id,
+                "date": appointment.appointment_date,
+                "time_begin": appointment.time_begin.strftime("%H:%M"),
+                "time_end": appointment.time_end.strftime("%H:%M"),
+                "dentist": appointment.dentist.name,
+                "procedures": procedures,
+                "notes": appointment.notes,
+            }
+        )
+
+    return history

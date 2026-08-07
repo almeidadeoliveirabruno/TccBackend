@@ -853,77 +853,46 @@ def sum_procedures(
     )
 
 
-def _current_month_range() -> tuple[date, date]:
-    """
-    Retorna (início do mês, início do mês seguinte).
-
-    Usado para filtrar "no mês atual" com
-    appointment_date >= inicio AND < inicio_proximo_mes.
-    """
-
-    today = date.today()
-    month_start = today.replace(day=1)
-
-    if month_start.month == 12:
-        next_month_start = month_start.replace(
-            year=month_start.year + 1,
-            month=1,
-        )
-    else:
-        next_month_start = month_start.replace(
-            month=month_start.month + 1,
-        )
-
-    return month_start, next_month_start
-
-
 def _get_table_statistics(
     db: Session,
     clinic_id: str,
 ) -> dict[str, float | int]:
     """
-    Estatísticas do mês atual, para os cards do topo da tabela.
+    Estatísticas gerais da clínica.
 
-    - total_appointments: agendamentos do mês.
+    - total_appointments: total de agendamentos.
     - no_show_count: quantos foram marcados como falta.
-    - unique_patients: pacientes distintos atendidos no mês.
+    - unique_patients: pacientes distintos atendidos.
     - revenue: soma do unit_price dos agendamentos não
-      cancelados no mês.
+      cancelados.
     """
 
-    month_start, next_month_start = _current_month_range()
-
-    month_filter = (
+    base_filter = (
         Appointment.clinic_id == clinic_id,
-        Appointment.appointment_date >= month_start,
-        Appointment.appointment_date < next_month_start,
     )
 
-    total_appointments = (
+    total_de_agendamentos = (
         db.query(func.count(Appointment.id))
-        .filter(*month_filter)
+        .filter(*base_filter)
         .scalar()
     )
 
-    # ATENÇÃO: assume que existe AppointmentStatus.FALTOU.
-    # Ajusta o nome do membro do enum caso seja diferente
-    # (ex.: NAO_COMPARECEU).
-    no_show_count = (
+    faltas = (
         db.query(func.count(Appointment.id))
         .filter(
-            *month_filter,
+            *base_filter,
             Appointment.status == AppointmentStatus.FALTOU,
         )
         .scalar()
     )
 
-    unique_patients = (
+    pacientes_unicos = (
         db.query(func.count(func.distinct(Appointment.patient_id)))
-        .filter(*month_filter)
+        .filter(*base_filter)
         .scalar()
     )
 
-    revenue = (
+    receita = (
         db.query(
             func.coalesce(
                 func.sum(AppointmentProcedure.unit_price), 0
@@ -934,19 +903,18 @@ def _get_table_statistics(
             Appointment.id == AppointmentProcedure.appointment_id,
         )
         .filter(
-            *month_filter,
+            *base_filter,
             Appointment.status != AppointmentStatus.CANCELADO,
         )
         .scalar()
     )
 
     return {
-        "total_appointments": total_appointments or 0,
-        "no_show_count": no_show_count or 0,
-        "unique_patients": unique_patients or 0,
-        "revenue": float(revenue or 0),
+        "total_de_agendamentos": total_de_agendamentos or 0,
+        "quantidade_de_faltas": faltas or 0,
+        "pacientes_atendidos": pacientes_unicos or 0,
+        "receita": float(receita or 0),
     }
-
 
 def get_appointments_by_clinic_id_for_table(
     db: Session,

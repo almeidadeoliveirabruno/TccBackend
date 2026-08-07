@@ -8,6 +8,9 @@ from schemas.patient import (
     PatientUpdate,
     PatientResponseCard,
     PatientResponseDetail,
+    PatientSummaryResponse,
+    PatientHistoryAppointment,
+    PatientHistoryProcedure
 )
 
 from services.patient_service import (
@@ -16,7 +19,9 @@ from services.patient_service import (
     delete_patient,
     get_patient_by_id,
     get_patients_by_clinic_id,
-    get_patient_detail
+    get_patient_detail,
+    get_patient_summary,
+    get_patient_history,
 )
 
 router = APIRouter(prefix="/patients", tags=["patients"])
@@ -67,3 +72,31 @@ def delete_patient_route(
     clinic_id: str = Depends(get_current_clinic_id),
 ):
     delete_patient(db, patient_id, clinic_id)
+
+@router.get(
+    "/{patient_id}/summary",
+    response_model=PatientSummaryResponse,
+)
+def get_summary(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+):
+    return get_patient_summary(
+        db=db,
+        clinic_id=clinic_id,
+        patient_id=patient_id,
+    )
+
+
+@router.get("/{patient_id}/history",response_model=list[PatientHistoryAppointment],)
+def get_history(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+):
+    return get_patient_history(
+        db=db,
+        clinic_id=clinic_id,
+        patient_id=patient_id,
+    )

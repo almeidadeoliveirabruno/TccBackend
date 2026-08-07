@@ -94,3 +94,30 @@ class PatientResponseDetail(BaseModel):
     city: str
     state: str
     cep: str
+
+class PatientSummaryAppointment(BaseModel):
+    appointment_id: int
+    date: date
+    time_begin: str
+    time_end: str
+    dentist: str
+
+
+class PatientSummaryResponse(BaseModel):
+    last_consult: PatientSummaryAppointment | None
+    next_consult: PatientSummaryAppointment | None
+
+class PatientHistoryProcedure(BaseModel):
+    name: str
+    tooth: str | None
+    display: str
+
+
+class PatientHistoryAppointment(BaseModel):
+    appointment_id: int
+    date: date
+    time_begin: str
+    time_end: str
+    dentist: str
+    notes: str | None
+    procedures: list[PatientHistoryProcedure]

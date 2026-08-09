@@ -133,8 +133,10 @@ def _get_procedures_or_404(
         for procedure in procedures
     }
 
+    '''missing_ids verifica se algum dos IDs enviados não foi encontrado no banco.'''
     missing_ids = set(procedure_ids) - found_ids
 
+    '''if missing_ids entra no if se algum dos IDs enviados não foi encontrado no banco.'''
     if missing_ids:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -444,6 +446,7 @@ def create_appointment(
     db.flush()
     db.refresh(appointment)
 
+#todo: criar a conta a receber aqui, com status "pendente" e total_amount = soma dos unit_price. Se o pagamento for parcelado, criar os installments também.
     return appointment
 
 

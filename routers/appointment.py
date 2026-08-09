@@ -10,6 +10,7 @@ from schemas.appointment import (
     AppointmentResponse,
     AppointmentResponseCard,
     AppointmentStatusUpdate,
+    AppointmentNotesUpdate,
     AppointmentUpdate,
     AppointmentProcedureUpdate,
     AppointmentProcedureOut,
@@ -26,6 +27,7 @@ from services.appointment_service import (
     mark_confirmation_message_sent,
     update_appointment,
     update_appointment_status,
+    update_appointment_notes,
     get_appointments_by_clinic_id_for_table,
     get_appointment_detail_by_id,
     update_appointment_detail,
@@ -148,6 +150,25 @@ def update_status_route(
         appointment_status.status,
         clinic_id,
     )
+
+
+@router.patch("/{appointment_id}/notes", response_model=AppointmentResponse)
+def update_notes_route(
+    appointment_id: int,
+    payload: AppointmentNotesUpdate,
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+):
+    """Edita a observação de uma consulta. Rota exclusiva da página
+    de Atendimento -- separada da edição completa (Agenda), que fica
+    em PUT /{appointment_id}."""
+    return update_appointment_notes(
+        db,
+        appointment_id,
+        payload.notes,
+        clinic_id,
+    )
+
 
 @router.delete("/{appointment_id}", status_code=204)
 def delete_appointment_route(

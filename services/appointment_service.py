@@ -28,6 +28,7 @@ from schemas.appointment import (
     AppointmentUpdate,
     TableDataLine,
     TableDetail,
+    TableDetailProcedure,
     AppointmentProcedureOut
 )
 from typing import Optional
@@ -815,6 +816,36 @@ def update_appointment_status(
     return appointment
 
 
+def update_appointment_notes(
+    db: Session,
+    appointment_id: int,
+    notes: Optional[str],
+    clinic_id: str,
+) -> Appointment:
+    """
+    Atualiza só a observação da consulta. Endpoint exclusivo da tela
+    de Atendimento (edição restrita: status / dente / observações).
+
+    Não reaproveita update_appointment: aquela função reagenda a
+    consulta inteira (data, horário, procedimentos) e força o status
+    de volta para AGENDADO -- efeito colateral indesejado só pra
+    salvar uma observação.
+    """
+
+    appointment = get_appointment_by_id(
+        db,
+        appointment_id,
+        clinic_id,
+    )
+
+    appointment.notes = notes
+
+    db.flush()
+    db.refresh(appointment)
+
+    return appointment
+
+
 # ==========================================================
 # DELETE
 # ==========================================================
@@ -1011,6 +1042,24 @@ def get_appointments_by_clinic_id_for_table(
         .all()
     )
 
+    # Nomes dos procedimentos de cada agendamento da página atual,
+    # buscados numa query só (evita N+1 -- uma query por linha).
+    row_ids = [row.id for row in rows]
+
+    procedures_map: dict[int, list[str]] = {}
+    if row_ids:
+        proc_rows = (
+            db.query(
+                AppointmentProcedure.appointment_id,
+                Procedure.name,
+            )
+            .join(Procedure, Procedure.id == AppointmentProcedure.procedure_id)
+            .filter(AppointmentProcedure.appointment_id.in_(row_ids))
+            .all()
+        )
+        for appointment_id, procedure_name in proc_rows:
+            procedures_map.setdefault(appointment_id, []).append(procedure_name)
+
     items = [
         TableDataLine(
             id=row.id,
@@ -1020,6 +1069,7 @@ def get_appointments_by_clinic_id_for_table(
                 f"{row.appointment_date.strftime('%d/%m/%Y')} "
                 f"{row.time_begin.strftime('%H:%M')}"
             ),
+            procedures=procedures_map.get(row.id, []),
             total_price=float(row.total_price or 0),
             status=row.status,
             confirmation_message_sent=row.confirmation_message_sent,
@@ -1050,11 +1100,15 @@ def _build_appointment_detail(
     carregado (com dentist, patient e procedure_items).
     """
 
-    tooths = ", ".join(
-        item.tooth
+    procedures = [
+        TableDetailProcedure(
+            id=item.id,
+            name=item.procedure.name,
+            tooth=item.tooth,
+            price=float(item.unit_price),
+        )
         for item in appointment.procedure_items
-        if item.tooth
-    )
+    ]
 
     total_price = sum_procedures(appointment.procedure_items)
 
@@ -1074,7 +1128,7 @@ def _build_appointment_detail(
             f"{appointment.appointment_date.strftime('%d/%m/%Y')} "
             f"{appointment.time_begin.strftime('%H:%M')}"
         ),
-        tooths=tooths,
+        procedures=procedures,
         total_price=float(total_price),
         duration=duration,
         status=appointment.status,

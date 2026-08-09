@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import math
 
 from sqlalchemy.orm import Session, joinedload
@@ -148,15 +148,63 @@ def get_patients_by_clinic_id(
         .all()
     )
 
+    statistics = get_statistics_patients(db, clinic_id)
     return {
         "items": [PatientResponseCard.model_validate(p) for p in patients],
         "page": page,
         "page_size": page_size,
         "total": total,
         "total_pages": max(1, math.ceil(total / page_size)) if total else 1,
-        "statistics": {
-            "total_patients": total
-        }
+        "statistics": statistics
+        
+    }
+
+def get_statistics_patients(db: Session, clinic_id: str):
+    """
+    Retorna estatísticas sobre os pacientes da clínica.
+    """
+    total_patients = (
+        db.query(Patient)
+        .filter(Patient.clinic_id == clinic_id)
+        .count()
+    )
+
+    new_patients_last_30_days = (
+        db.query(Patient)
+        .filter(
+            Patient.clinic_id == clinic_id,
+            Patient.created_at >= datetime.now() - timedelta(days=30)
+        )
+        .count()
+    )
+
+    patients_attended_last_30_days = (
+        db.query(Appointment.patient_id)
+        .filter(
+            Appointment.clinic_id == clinic_id,
+            Appointment.status == AppointmentStatus.REALIZADO,
+            Appointment.appointment_date >= datetime.now().date() - timedelta(days=30)
+        )
+        .distinct()
+        .count()
+    )
+
+    active_patients = (
+        db.query(Appointment.patient_id)
+        .filter(
+            Appointment.clinic_id == clinic_id,
+            Appointment.status == AppointmentStatus.REALIZADO,
+            Appointment.appointment_date >= datetime.now().date() - timedelta(days=180)
+        )
+        .distinct()
+        .count()
+    )
+
+    return {
+        "total_patients": total_patients,
+        "new_patients_last_30_days": new_patients_last_30_days,
+        "patients_attended_last_30_days": patients_attended_last_30_days,  
+        "active_patients": active_patients,
     }
 
 def update_patient(
@@ -364,3 +412,4 @@ def get_patient_history(
         )
 
     return history
+

@@ -92,6 +92,15 @@ class AppointmentStatusUpdate(BaseModel):
     status: AppointmentStatus
 
 
+class AppointmentNotesUpdate(BaseModel):
+    """Payload exclusivo para editar a observação de uma consulta já
+    existente, na página de Atendimento. Não usa AppointmentUpdate
+    porque aquele schema é do fluxo de Agenda (permite mudar data,
+    horário e procedimentos, e força o status de volta a AGENDADO)."""
+
+    notes: str | None = None
+
+
 class ProcedureSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -169,21 +178,36 @@ class TableDataLine(BaseModel):
     pacient_name: str
     dentist_name: str
     time_day: str
+    procedures: list[str] = []
     total_price: float
     status: AppointmentStatus
     confirmation_message_sent: bool
+
+
+class TableDetailProcedure(BaseModel):
+    """Item de procedimento dentro do TableDetail. O `id` aqui é o id
+    de AppointmentProcedure -- é ele que o PATCH
+    /appointments/procedures/{id}/tooth espera para editar o dente."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    tooth: str | None = None
+    price: float
+
 
 class TableDetail(BaseModel):
     id: int
     pacient_name: str
     dentist_name: str
     time_day: str
-    tooths: str
+    procedures: list[TableDetailProcedure]
     total_price: float
     duration: int
     status: AppointmentStatus
     confirmation_message_sent: bool
-    notes: str
+    notes: str | None = None
 
 class TableDataLinePaginatedResponse(BaseModel):
     items: list[TableDataLine]

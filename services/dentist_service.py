@@ -217,8 +217,6 @@ def update_dentist(
 ):
     dentist = get_dentist_by_id(db, dentist_id, clinic_id)
 
-    # ===== Verificação centralizada de duplicatas =====
-    # Passamos apenas os campos que foram enviados (não None)
     _check_duplicate_fields(
         db=db,
         clinic_id=clinic_id,
@@ -228,8 +226,6 @@ def update_dentist(
         email=dentist_update.email,
     )
 
-    # ===== Atualização dos campos simples =====
-    # Excluímos os campos que tratamos separadamente (specialties, cro, cpf)
     data = dentist_update.model_dump(
         exclude_unset=True,
         exclude={"specialties", "cro", "cpf"},
@@ -260,8 +256,6 @@ def update_dentist_status(
     status: DentistStatus,
     clinic_id: str,
 ):
-    """Troca só o status do dentista — usado pela rota PATCH /dentists/{id}/status,
-    pra não precisar mandar o objeto inteiro só pra marcar férias/inativo/etc."""
     dentist = get_dentist_by_id(db, dentist_id, clinic_id)
     dentist.status = status
     db.flush()

@@ -9,3 +9,5 @@ from .specialty import Specialty
 from .associations.dentist_specialties import dentist_specialties
 from .associations.appointment_procedure import AppointmentProcedure
 from .associations.dentist_schedules import DentistSchedule
+from .expense import Expense
+from .receivable import Receivable

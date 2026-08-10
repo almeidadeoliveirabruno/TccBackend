@@ -1,15 +1,6 @@
-"""
-Lógica central de agendamento.
-
-Responsabilidades:
-- Validar regras de negócio.
-- Garantir isolamento por clínica.
-- Calcular duração automaticamente.
-- Validar conflitos.
-"""
-
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from services.receivable_service import create_receivable_for_appointment
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_, func
@@ -447,7 +438,7 @@ def create_appointment(
     db.flush()
     db.refresh(appointment)
 
-#todo: criar a conta a receber aqui, com status "pendente" e total_amount = soma dos unit_price. Se o pagamento for parcelado, criar os installments também.
+    create_receivable_for_appointment(db, appointment, clinic_id)
     return appointment
 
 

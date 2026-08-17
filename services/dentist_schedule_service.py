@@ -19,7 +19,7 @@ def get_dentist_or_404(db: Session, dentist_id: int, clinic_id: str) -> Dentist:
         .first()
     )
     if not dentist:
-        raise HTTPException(status_code=404, detail="Dentist not found.")
+        raise HTTPException(status_code=404, detail="Dentista não encontrado.")
     return dentist
 
 
@@ -38,7 +38,7 @@ def get_dentist_schedule_or_404(
         .first()
     )
     if not association:
-        raise HTTPException(status_code=404, detail="Schedule entry not found.")
+        raise HTTPException(status_code=404, detail="Entrada de horário não encontrada.")
     return association
 
 
@@ -138,7 +138,7 @@ def create_dentist_schedules(
     get_dentist_or_404(db, dentist_id, clinic_id)
 
     if not availability:
-        raise HTTPException(status_code=400, detail="At least one schedule must be provided.")
+        raise HTTPException(status_code=400, detail="Pelo menos um horário deve ser fornecido.")
 
     schedules_created = []
     # Guarda os ranges já aceitos nesta mesma chamada, agrupados por dia,
@@ -247,7 +247,7 @@ def update_dentist_schedule(
     ):
         raise HTTPException(
             status_code=400,
-            detail="This dentist already has this schedule on the selected day.",
+            detail="Este dentista já possui este horário no dia selecionado.",
         )
 
     try:
@@ -257,7 +257,7 @@ def update_dentist_schedule(
     except IntegrityError:
         raise HTTPException(
             status_code=400,
-            detail="Integrity error while updating schedule.",
+            detail="Erro de integridade ao atualizar horário.",
         )
 
     return schemas.ScheduleCreatedResponse(

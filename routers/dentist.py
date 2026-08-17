@@ -62,11 +62,6 @@ def list_specialties_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
-    # PRECISA vir antes de "/{dentist_id}" neste arquivo: rotas com path
-    # param casam por posição de registro, não por tipo — se
-    # "/{dentist_id}" viesse primeiro, GET /dentists/specialties bateria
-    # nela e o FastAPI tentaria converter "specialties" pra int (erro 422)
-    # antes mesmo de considerar esta rota.
     return get_distinct_specialties(db, clinic_id)
 
 

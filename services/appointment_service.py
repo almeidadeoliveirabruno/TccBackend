@@ -13,6 +13,7 @@ from models.dentist import Dentist, DentistStatus
 from models.patient import Patient
 from models.procedure import Procedure
 from models.schedule import Schedule
+from models.receivable import Receivable
 import math
 from schemas.appointment import (
     AppointmentCreate,
@@ -923,21 +924,12 @@ def _get_table_statistics(
     )
 
     receita = (
-        db.query(
-            func.coalesce(
-                func.sum(AppointmentProcedure.unit_price), 0
-            )
-        )
-        .join(
-            Appointment,
-            Appointment.id == AppointmentProcedure.appointment_id,
-        )
-        .filter(
-            *base_filter,
-            Appointment.status != AppointmentStatus.CANCELADO,
-        )
-        .scalar()
+    db.query(
+        func.coalesce(func.sum(Receivable.total_amount), 0)
     )
+    .filter(Receivable.status == "pago")
+    .scalar()
+)
 
     return {
         "total_de_agendamentos": total_de_agendamentos or 0,

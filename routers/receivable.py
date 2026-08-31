@@ -25,8 +25,8 @@ def list_receivables_route(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: ReceivableStatus | None = None,
-    due_date_from: date | None = None,
-    due_date_to: date | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
@@ -34,8 +34,8 @@ def list_receivables_route(
         db,
         clinic_id,
         receivable_status=status,
-        due_date_from=due_date_from,
-        due_date_to=due_date_to,
+        date_from=date_from,
+        date_to=date_to,
         page=page,
         page_size=page_size,
     )

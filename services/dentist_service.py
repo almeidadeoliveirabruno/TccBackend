@@ -76,7 +76,6 @@ def _check_duplicate_fields(
             )
 
     if email is not None:
-        # E‑mail normalmente é case‑insensitive, mas pode ser exato ou lower()
         query = db.query(Dentist).filter(
             func.lower(Dentist.email) == email.lower(),
             Dentist.clinic_id == clinic_id,

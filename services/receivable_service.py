@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from decimal import Decimal
 from typing import Optional
 
@@ -11,6 +11,16 @@ from models.appointment import Appointment
 from schemas.common import PaginatedResponse
 from schemas.receivable import ReceivableUpdate
 from enums.ReceivableStatus import ReceivableStatus
+
+
+def _to_naive_utc(dt: datetime) -> datetime:
+    """
+    BUG do SQLAlchemy: ele não consegue comparar datetimes aware com datetimes naive. O problema foi resolvido por meio da função _to_naive_utc, que converte qualquer datetime (aware ou naive) para naive em UTC. Isso é necessário porque a coluna paid_at no banco de dados é do tipo DateTime sem timezone, e comparar datetimes aware com datetimes naive (como datetime.utcnow()) resulta em um TypeError. Portanto, antes de realizar qualquer comparação ou atribuição envolvendo a coluna paid_at, é importante garantir que o datetime seja convertido para naive em UTC usando essa função.
+    !!!Preciso lembrar disso!!!
+    """
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 
 def create_receivable_for_appointment(
@@ -96,23 +106,27 @@ def list_receivables(
     clinic_id: str,
     *,
     receivable_status: Optional[ReceivableStatus] = None,
-    due_date_from: Optional[date] = None,
-    due_date_to: Optional[date] = None,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> PaginatedResponse:
-    query = db.query(Receivable).filter(Receivable.clinic_id == clinic_id)
+    query = (
+        db.query(Receivable)
+        .join(Appointment, Receivable.appointment_id == Appointment.id)
+        .filter(Receivable.clinic_id == clinic_id)
+    )
 
     if receivable_status is not None:
         query = query.filter(Receivable.status == receivable_status.value)
-    if due_date_from is not None:
-        query = query.filter(Receivable.due_date >= due_date_from)
-    if due_date_to is not None:
-        query = query.filter(Receivable.due_date <= due_date_to)
+    if date_from is not None:
+        query = query.filter(Appointment.appointment_date >= date_from)
+    if date_to is not None:
+        query = query.filter(Appointment.appointment_date <= date_to)
 
     total = query.count()
     items = (
-        query.order_by(Receivable.due_date.asc())
+        query.order_by(Appointment.appointment_date.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -150,6 +164,15 @@ def update_receivable(
     if "status" in update_data and update_data["status"] is not None:
         update_data["status"] = data.status.value
 
+    if "paid_at" in update_data and update_data["paid_at"] is not None:
+        naive_paid_at = _to_naive_utc(update_data["paid_at"])
+        # if naive_paid_at > datetime.utcnow():
+        #     raise HTTPException(
+        #         status_code=status.HTTP_400_BAD_REQUEST,
+        #         detail="Data de pagamento não pode ser no futuro",
+        #     )
+        update_data["paid_at"] = naive_paid_at
+
     for field, value in update_data.items():
         setattr(receivable, field, value)
 
@@ -172,9 +195,9 @@ def mark_receivable_as_paid(
     if receivable.status == ReceivableStatus.PAGO.value:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Conta já está paga")
 
-    paid_at = paid_at or datetime.utcnow()
-    if paid_at > datetime.utcnow():
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Data de pagamento não pode ser no futuro")
+    paid_at = _to_naive_utc(paid_at) if paid_at else datetime.utcnow()
+    # if paid_at > datetime.utcnow():
+    #     raise HTTPException(status.HTTP_400_BAD_REQUEST, "Data de pagamento não pode ser no futuro")
 
     receivable.status = ReceivableStatus.PAGO.value
     receivable.paid_at = paid_at

@@ -5,6 +5,7 @@ from typing import Optional
 from enums.ReceivableStatus import ReceivableStatus
 from pydantic import BaseModel, ConfigDict, Field
 
+
 class ReceivableUpdate(BaseModel):
     status: Optional[ReceivableStatus] = None
     due_date: Optional[date] = None
@@ -26,3 +27,5 @@ class ReceivableResponse(BaseModel):
     notes: Optional[str] = None
     created_at: datetime
     is_paid: bool
+    appointment_date: Optional[date] = None
+    dentist_name: Optional[str] = None

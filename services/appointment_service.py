@@ -24,6 +24,7 @@ from schemas.appointment import (
     AppointmentProcedureOut
 )
 from typing import Optional
+from services.receivable_service import update_price_by_appointment
 
 
 # ==========================================================
@@ -713,6 +714,7 @@ def update_appointment(
         # Recalcula os preços apenas quando os
         # procedimentos foram de fato alterados.
         price_map = _procedures_price_map(procedures)
+        
 
         for item in appointment_update.procedures:
 
@@ -724,6 +726,7 @@ def update_appointment(
                 )
             )
 
+    update_price_by_appointment(db, appointment, clinic_id)
     # Mudou a consulta, precisa reconfirmar.
     appointment.status = AppointmentStatus.AGENDADO
     appointment.confirmation_message_sent = False
@@ -956,9 +959,6 @@ def get_appointments_by_clinic_id_for_table(
 
     skip = (page - 1) * page_size
 
-    # Soma de unit_price por agendamento, calculada à parte
-    # e ligada via outerjoin (agendamento sem procedimento
-    # ainda aparece, com total_price = 0).
     price_subquery = (
         db.query(
             AppointmentProcedure.appointment_id.label("appointment_id"),
@@ -1017,7 +1017,7 @@ def get_appointments_by_clinic_id_for_table(
 
     rows = (
         query.order_by(
-            Appointment.appointment_date,
+            Appointment.appointment_date.desc(),
             Appointment.time_begin,
         )
         .offset(skip)

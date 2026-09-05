@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from db.dependencies import get_db, get_current_clinic_id
 from schemas.common import PaginatedResponse
-from schemas.receivable import ReceivableUpdate, ReceivableResponse
+from schemas.receivable import ReceivableUpdate, ReceivableResponse, ReceivableTable
 from enums.ReceivableStatus import ReceivableStatus
 
 from services.receivable_service import (
@@ -20,7 +20,7 @@ from services.receivable_service import (
 router = APIRouter(prefix="/receivables", tags=["receivables"])
 
 
-@router.get("", response_model=PaginatedResponse[ReceivableResponse])
+@router.get("", response_model=PaginatedResponse[ReceivableTable])
 def list_receivables_route(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),

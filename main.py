@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, procedure, dentist, dentist_schedule, patient, appointment, expense, receivable, dashboard
+from routers import auth, procedure, dentist, dentist_schedule, patient, appointment, expense, receivable, dashboard, home
 from core.config import settings
 from db.database import engine, Base
 import models
@@ -33,6 +33,7 @@ app.include_router(appointment.router)
 app.include_router(expense.router)
 app.include_router(receivable.router)
 app.include_router(dashboard.router)
+app.include_router(home.router)
 
 if __name__ == "__main__":
     import uvicorn

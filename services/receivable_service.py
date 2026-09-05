@@ -1,11 +1,13 @@
 from datetime import datetime, date, timezone
 from decimal import Decimal
 from typing import Optional
+import math
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from models.dentist import Dentist
 from models.receivable import Receivable
 from models.appointment import Appointment
 from schemas.common import PaginatedResponse
@@ -104,16 +106,24 @@ def get_receivable_statistics(db: Session, clinic_id: str) -> dict:
 def list_receivables(
     db: Session,
     clinic_id: str,
-    *,
     receivable_status: Optional[ReceivableStatus] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> PaginatedResponse:
+
+    skip = (page - 1) * page_size
+
     query = (
-        db.query(Receivable)
+        db.query(Receivable.id,
+        Receivable.total_amount,
+        Appointment.appointment_date,
+        Appointment.id.label("appointment_id"),
+        Receivable.status,
+        Dentist.name.label("dentist_name"))        
         .join(Appointment, Receivable.appointment_id == Appointment.id)
+        .join(Dentist, Appointment.dentist_id == Dentist.id)
         .filter(Receivable.clinic_id == clinic_id)
     )
 
@@ -127,11 +137,11 @@ def list_receivables(
     total = query.count()
     items = (
         query.order_by(Appointment.appointment_date.desc())
-        .offset((page - 1) * page_size)
+        .offset(skip)
         .limit(page_size)
         .all()
     )
-    total_pages = -(-total // page_size) if total else 0
+    total_pages = math.ceil(total / page_size) if total else 0
 
     return PaginatedResponse(
         items=items,
@@ -220,3 +230,38 @@ def cancel_receivable(db: Session, clinic_id: str, receivable_id: int) -> Receiv
     db.flush()
     db.refresh(receivable)
     return receivable
+
+def update_price_by_appointment(
+    db: Session,
+    appointment: Appointment,
+    clinic_id: str,
+) -> Receivable:
+    """
+    Recalcula o valor total da consulta (soma dos unit_price
+    dos procedimentos) e atualiza o recebível correspondente.
+    """
+
+    total_price = sum(
+        item.unit_price for item in appointment.procedure_items
+    )
+
+    receivable = (
+        db.query(Receivable)
+        .filter(
+            Receivable.appointment_id == appointment.id,
+            Receivable.clinic_id == clinic_id,
+        )
+        .first()
+    )
+
+    if not receivable:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Recebível não encontrado para esta consulta",
+        )
+
+    receivable.total_amount = total_price
+    db.flush()
+
+    return receivable
+    

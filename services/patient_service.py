@@ -96,7 +96,6 @@ def create_patient(
     db.add(patient)
     db.flush()
 
-    # já temos o CPF em mãos (patient_create.cpf), não precisa descriptografar de novo
     return _to_patient_detail(patient, cpf_plain=patient_create.cpf)
 
 

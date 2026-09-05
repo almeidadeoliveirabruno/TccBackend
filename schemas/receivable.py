@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Optional
 from enums.ReceivableStatus import ReceivableStatus
 from pydantic import BaseModel, ConfigDict, Field
+from models.appointment import AppointmentStatus
 
 
 class ReceivableUpdate(BaseModel):
@@ -29,3 +30,11 @@ class ReceivableResponse(BaseModel):
     is_paid: bool
     appointment_date: Optional[date] = None
     dentist_name: Optional[str] = None
+
+class ReceivableTable(BaseModel):
+    id: int
+    dentist_name: str
+    appointment_date: date 
+    total_amount: Decimal
+    status: ReceivableStatus
+    appointment_id: int

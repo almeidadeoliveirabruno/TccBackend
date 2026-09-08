@@ -14,6 +14,7 @@ from core.security import (
 
 from models.user import User
 
+#oauth2_scheme é uma instância de OAuth2PasswordBearer, que é usada para extrair o token de acesso do cabeçalho Authorization das solicitações. O parâmetro tokenUrl especifica a URL onde os clientes podem obter tokens de acesso válidos. Neste caso, a URL é "/auth/login", indicando que os clientes devem enviar suas credenciais para essa rota para receber um token de acesso.
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
 )

@@ -229,7 +229,7 @@ def expense_by_month_billing(
     )
 
 #Controle appointments
-
+#gráfico de rosca de atendimentos por status
 def appointments_count(
     db: Session,
     clinic_id: str,
@@ -257,6 +257,41 @@ def appointments_count(
     return [
         {
             "status": row.appointments_status,
+            "count": row.count,
+            "percentage": round((row.count / total) * 100, 2) if total > 0 else 0,
+        }
+        for row in results
+    ]
+
+#gráfico de rosca de despesas por categoria
+def expenses_count(
+    db: Session,
+    clinic_id: str,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+):
+    filters = [Expense.clinic_id == clinic_id]
+    if start_date:
+        filters.append(Expense.due_date >= start_date)
+    if end_date:
+        filters.append(Expense.due_date <= end_date)
+
+    results = (
+        db.query(
+            Expense.category.label("expense_category"),
+            func.count(Expense.id).label("count")
+        )
+
+        .filter(*filters)
+        .group_by(Expense.category)
+        .all()
+    )
+
+    total = sum(row.count for row in results)
+
+    return [
+        {
+            "category": row.expense_category,
             "count": row.count,
             "percentage": round((row.count / total) * 100, 2) if total > 0 else 0,
         }
@@ -322,13 +357,6 @@ def attendance_by_month(
 
     return results
 
-def expense_per_category(
-    db: Session,
-    clinic_id: str,
-    start_date: Optional[date] = None,
-    end_date: Optional[date] = None,
-):
-    ...
 
 #cards
 def profit(

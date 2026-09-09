@@ -1,12 +1,13 @@
 from models import *
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, case
 from datetime import date
 from enums.ExpenseStatus import ExpenseStatus
 from enums.DentistStatus import DentistStatus
 from models.appointment import AppointmentStatus
+from schemas.home import NextAppointmentsByDentist, AppointmentSummary, ProcedureCategoryDistribution
 
-def last_five_patients(
+def last_patients(
     db: Session,
     clinic_id: str
 ):
@@ -64,43 +65,106 @@ def pending_appointments(
     return appointments
 
 # Próximos agendamentos de cada dentista, considerando apenas os agendamentos com status agendado ou confirmado.
-def next_appointment_by_dentist(
+def get_next_appointments_by_dentist(
     db: Session,
-    clinic_id: str
-):
-    dentists = (
+    clinic_id: str,
+    dentist_id: int,
+) -> NextAppointmentsByDentist | None:
+    dentist = (
         db.query(Dentist)
         .filter(
+            Dentist.id == dentist_id,
             Dentist.clinic_id == clinic_id,
             Dentist.status == DentistStatus.ATIVO
         )
+        .first()
+    )
+
+    if dentist is None:
+        return None
+
+    appointments = (
+        db.query(Appointment)
+        .options(
+            joinedload(Appointment.patient),
+            joinedload(Appointment.procedure_items)
+                .joinedload(AppointmentProcedure.procedure),
+        )
+        .filter(
+            Appointment.clinic_id == clinic_id,
+            Appointment.dentist_id == dentist.id,
+            Appointment.appointment_date >= date.today(),
+            Appointment.status.in_([
+                AppointmentStatus.AGENDADO,
+                AppointmentStatus.CONFIRMADO
+            ])
+        )
+        .order_by(
+            Appointment.appointment_date.asc(),
+            Appointment.time_begin.asc()
+        )
+        .limit(5)
         .all()
     )
 
-    result = []
+    return NextAppointmentsByDentist(
+        dentist_name=dentist.name,
+        appointments=[
+            AppointmentSummary(
+                patient_name=appt.patient.name,
+                procedure_name=[
+                    item.procedure.name
+                    for item in appt.procedure_items
+                ],
+                appointment_date=appt.appointment_date,
+                time_begin=appt.time_begin,
+                time_end=appt.time_end,
+                appointment_status=appt.status,
+            )
+            for appt in appointments
+        ],
+    )
 
-    for dentist in dentists:
-        appointment = (
-            db.query(Appointment)
-            .filter(
-                Appointment.clinic_id == clinic_id,
-                Appointment.dentist_id == dentist.id,
-                Appointment.appointment_date >= date.today(),
-                Appointment.status.in_([
-                    AppointmentStatus.AGENDADO,
-                    AppointmentStatus.CONFIRMADO
-                ])
+def procedures_category_distribution(
+    db: Session,
+    clinic_id: str
+) -> list[ProcedureCategoryDistribution]:
+    results = (
+        db.query(
+            Procedure.category.label("category_name"),
+            func.count(AppointmentProcedure.id).label("procedure_count"),
+        )
+        .join(AppointmentProcedure, AppointmentProcedure.procedure_id == Procedure.id)
+        .join(Appointment, Appointment.id == AppointmentProcedure.appointment_id)
+        .filter(Appointment.clinic_id == clinic_id)
+        .group_by(Procedure.category)
+        .order_by(func.count(AppointmentProcedure.id).desc())
+        .all()
+    )
+
+    total = sum(r.procedure_count for r in results)
+
+    if total == 0:
+        return []
+
+    top_4 = results[:4]
+    rest = results[4:]
+
+    distribution = [
+        ProcedureCategoryDistribution(
+            category_name=r.category_name,
+            percentage=round((r.procedure_count / total) * 100, 1),
+        )
+        for r in top_4
+    ]
+
+    if rest:
+        rest_count = sum(r.procedure_count for r in rest)
+        distribution.append(
+            ProcedureCategoryDistribution(
+                category_name="Demais categorias",
+                percentage=round((rest_count / total) * 100, 1),
             )
-            .order_by(
-                Appointment.appointment_date.asc(),
-                Appointment.time_begin.asc()
-            )
-            .first()
         )
 
-        result.append({
-            "dentist": dentist,
-            "appointment": appointment
-        })
-
-    return result
+    return distribution

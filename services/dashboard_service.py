@@ -457,5 +457,6 @@ def attendance_percentage(
             round(result.realized / total * 100, 2)
             if total > 0
             else 0
-        )
+        ),
+        "total": total
     }

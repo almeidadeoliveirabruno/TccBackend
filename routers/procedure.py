@@ -59,7 +59,6 @@ def get_procedures(
     db: Session = Depends(get_db),
     clinic_id: int = Depends(get_current_clinic_id)
 ):
-    print(search_query)
     if search_query:
         return search_procedures(db, search_query, clinic_id)
     return get_procedures_by_clinic_id(db, clinic_id)

@@ -145,7 +145,7 @@ def _get_procedures_or_404(
                 detail=f"Procedimento '{procedure.name}' está inativo",
             )
 
-        if procedure.duration is None or procedure.duration <= 0:
+        if procedure.duration is None or procedure.duration < 0:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Procedimento '{procedure.name}' não possui duração cadastrada",
@@ -930,7 +930,7 @@ def _get_table_statistics(
     db.query(
         func.coalesce(func.sum(Receivable.total_amount), 0)
     )
-    .filter(Receivable.status == "pago")
+    .filter(*base_filter, Receivable.status == "pago")
     .scalar()
 )
 

@@ -57,3 +57,4 @@ class Profit(BaseModel):
 
 class AttendancePercentage(BaseModel):
     attendance_percentage: float
+    total: int

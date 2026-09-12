@@ -88,7 +88,7 @@ def list_expenses(
 
     total = query.count()
     items = (
-        query.order_by(Expense.due_date.asc())
+        query.order_by(Expense.due_date.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()

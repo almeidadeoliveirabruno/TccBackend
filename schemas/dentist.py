@@ -133,3 +133,9 @@ class DentistResponseDetail(BaseModel):
 
     class Config:
         from_attributes = True
+
+class DentistBasicResponse(BaseModel):
+    id: int
+    name: str
+    class Config:
+            from_attributes = True

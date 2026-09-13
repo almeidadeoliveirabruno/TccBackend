@@ -207,6 +207,15 @@ def get_dentists_by_clinic_id(
         "statistics": statistics,
     }
 
+# Para listas simples (sem paginação) e para alimentar selects/autocomplete no frontend:
+def get_dentists_basic(db: Session, clinic_id: str):
+    return (
+        db.query(Dentist)
+        .filter(Dentist.clinic_id == clinic_id)
+        .filter(Dentist.status == DentistStatus.ATIVO)
+        .order_by(Dentist.name)
+        .all()
+    )
 
 def update_dentist(
     db: Session,

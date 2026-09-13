@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     CPF_ENCRYPTION_KEY: str
 
+    CPF_HASH_PEPPER: str
+
 
     @field_validator("ALLOWED_ORIGINS")
     def parse_allowed_origins(cls, v: str) -> List[str]:

@@ -9,6 +9,7 @@ from schemas.dentist import (
     DentistStatusUpdate,
     DentistResponse,
     DentistResponseDetail,
+    DentistBasicResponse
 )
 from models.dentist import DentistStatus
 from services.dentist_service import (
@@ -20,6 +21,7 @@ from services.dentist_service import (
     update_dentist_status,
     get_distinct_specialties,
     get_dentist_detail,
+    get_dentists_basic,
 )
 from services.dentist_schedule_service import create_dentist_schedules
 
@@ -63,6 +65,13 @@ def list_specialties_route(
     clinic_id: str = Depends(get_current_clinic_id),
 ):
     return get_distinct_specialties(db, clinic_id)
+
+@router.get("/basic", response_model=list[DentistBasicResponse])
+def list_dentists_basic_route(
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+):
+    return get_dentists_basic(db, clinic_id)
 
 
 @router.get("/{dentist_id}", response_model=DentistResponseDetail)

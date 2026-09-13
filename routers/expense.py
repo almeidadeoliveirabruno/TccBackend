@@ -54,6 +54,10 @@ def list_expenses_route(
         page_size=page_size,
     )
 
+@router.get("/categories", response_model=list[str])
+def list_expense_categories_route():
+    """Categorias sugeridas pro frontend popular um <select>."""
+    return [c.value for c in ExpenseCategory]
 
 @router.get("/{expense_id}", response_model=ExpenseResponse)
 def get_expense_route(
@@ -93,7 +97,3 @@ def cancel_expense_route(
     return cancel_expense(db, clinic_id, expense_id)
 
 
-@router.get("/categories", response_model=list[str])
-def list_expense_categories_route():
-    """Categorias sugeridas pro frontend popular um <select>."""
-    return [c.value for c in ExpenseCategory]

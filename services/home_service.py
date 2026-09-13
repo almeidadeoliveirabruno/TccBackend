@@ -11,7 +11,7 @@ def last_patients(
     db: Session,
     clinic_id: str
 ):
-    results = db.query(Patient).filter(Patient.clinic_id == clinic_id).order_by(Patient.created_at.desc()).limit(5)
+    results = db.query(Patient).filter(Patient.clinic_id == clinic_id).order_by(Patient.created_at.desc()).limit(4)
     return results
 
 

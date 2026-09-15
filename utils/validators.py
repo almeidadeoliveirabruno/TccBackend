@@ -3,7 +3,7 @@
 import re
 
 
-def validar_cpf(cpf: str) -> bool:
+def _validar_cpf(cpf: str) -> bool:
     """
     Valida um CPF verificando seus 2 dígitos verificadores.
 
@@ -47,7 +47,15 @@ def validar_cpf(cpf: str) -> bool:
     return cpf[-2:] == f"{digito1}{digito2}"
 
 
-def validar_telefone(telefone: str) -> bool:
+def _validar_telefone(telefone: str) -> bool:
     """Valida telefone brasileiro: 10 dígitos (fixo) ou 11 dígitos (celular com 9)."""
     telefone = re.sub(r"\D", "", telefone)
     return len(telefone) in (10, 11)
+
+_EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _validar_email(email: str) -> bool:
+    """Validação simples de formato de e-mail (mesma regra usada no front)."""
+    '''exige um bloco de texto, um @, outro bloco de texto, um ponto, e mais um bloco de texto'''
+    return bool(_EMAIL_REGEX.match(email or ""))

@@ -17,7 +17,7 @@ def validate_birth_date(birth_date: str) -> str:
 
 class PatientCreate(BaseModel):
     name: str
-    email: EmailStr
+    email: str
     phone: str
     cpf: str
     birth_date: str
@@ -41,7 +41,7 @@ class PatientCreate(BaseModel):
 
 class PatientUpdate(BaseModel):
     name: str | None = None
-    email: EmailStr | None = None
+    email: str | None = None
     phone: str | None = None
     cpf: str | None = None
     birth_date: str | None = None

@@ -41,13 +41,10 @@ def create_access_token(data: dict):
 from cryptography.fernet import Fernet, InvalidToken
  
 # --- Hash para duplicidade/busca (determinístico, NÃO reversível) ---
-CPF_PEPPER = os.getenv("CPF_HASH_PEPPER", "change-this-pepper-in-env")
+CPF_PEPPER = os.getenv("CPF_HASH_PEPPER")
  
 
 _CPF_ENCRYPTION_KEY = os.getenv("CPF_ENCRYPTION_KEY")
-if not _CPF_ENCRYPTION_KEY:
-    # Fallback só pra dev local. Em produção, isso TEM que vir do ambiente.
-    _CPF_ENCRYPTION_KEY = Fernet.generate_key().decode()
  
 _fernet = Fernet(_CPF_ENCRYPTION_KEY.encode())
  

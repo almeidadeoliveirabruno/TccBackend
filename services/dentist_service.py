@@ -2,12 +2,12 @@ import math
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import HTTPException
-
 from models.dentist import Dentist, DentistStatus
 from models.specialty import Specialty
 from models.associations.dentist_specialties import dentist_specialties
 from schemas.dentist import DentistCreate, DentistUpdate, DentistResponseDetail
 from core.security import hash_cpf, encrypt_cpf, decrypt_cpf
+from utils.validators import _validar_cpf, _validar_telefone
 
 
 def _normalize_cro(cro: str) -> str:
@@ -120,6 +120,11 @@ def _resolve_specialties(db: Session, names: list[str]) -> list[Specialty]:
 
 
 def create_dentist(db: Session, dentist_create: DentistCreate, clinic_id: str):
+    #Verifica se o CPF é válido antes de prosseguir
+    if not _validar_cpf(dentist_create.cpf):
+        raise HTTPException(status_code=400, detail="CPF inválido")
+    if not _validar_telefone(dentist_create.phone):
+        raise HTTPException(status_code=400, detail="Telefone inválido")
     # Verifica duplicatas de CPF, CRO e e‑mail
     _check_duplicate_fields(
         db=db,
@@ -233,6 +238,11 @@ def update_dentist(
         cro=dentist_update.cro,
         email=dentist_update.email,
     )
+
+    if not _validar_cpf(dentist_update.cpf):
+            raise HTTPException(status_code=400, detail="CPF inválido")
+    if not _validar_telefone(dentist_update.phone):
+            raise HTTPException(status_code=400, detail="Telefone inválido")
 
     data = dentist_update.model_dump(
         exclude_unset=True,

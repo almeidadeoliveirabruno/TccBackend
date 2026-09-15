@@ -498,6 +498,7 @@ def get_available_times(
                 [
                     AppointmentStatus.AGENDADO,
                     AppointmentStatus.CONFIRMADO,
+                    AppointmentStatus.REALIZADO,
                 ]
             ),
         )
@@ -930,7 +931,10 @@ def _get_table_statistics(
     db.query(
         func.coalesce(func.sum(Receivable.total_amount), 0)
     )
-    .filter(*base_filter, Receivable.status == "pago")
+    .filter(
+        Receivable.clinic_id == clinic_id,
+        Receivable.status == "pago",
+    )
     .scalar()
 )
 

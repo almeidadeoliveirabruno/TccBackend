@@ -85,6 +85,30 @@ def list_appointments_route(
         appointment_status=appointment_status,
     )
 
+@router.get("/table", response_model=TableDataLinePaginatedResponse)
+def list_appointments_table(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    dentist: str | None = Query(None),
+    patient: str | None = Query(None),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    status: AppointmentStatus | None = Query(None),
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+):
+    return get_appointments_by_clinic_id_for_table(
+        db=db,
+        clinic_id=clinic_id,
+        page=page,
+        page_size=page_size,
+        dentist=dentist,
+        patient=patient,
+        start_date=start_date,
+        end_date=end_date,
+        status=status,
+    )
+
 
 @router.get("/{appointment_id}", response_model=AppointmentResponse)
 def get_appointment_route(
@@ -182,31 +206,8 @@ def delete_appointment_route(
         clinic_id,
     )
 
-@router.get("/appointments/table", response_model=TableDataLinePaginatedResponse)
-def list_appointments_table(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
-    dentist: str | None = Query(None),
-    patient: str | None = Query(None),
-    start_date: date | None = Query(None),
-    end_date: date | None = Query(None),
-    status: AppointmentStatus | None = Query(None),
-    db: Session = Depends(get_db),
-    clinic_id: str = Depends(get_current_clinic_id),
-):
-    return get_appointments_by_clinic_id_for_table(
-        db=db,
-        clinic_id=clinic_id,
-        page=page,
-        page_size=page_size,
-        dentist=dentist,
-        patient=patient,
-        start_date=start_date,
-        end_date=end_date,
-        status=status,
-    )
 
-@router.get("/appointments/{appointment_id}", response_model=TableDetail)
+@router.get("/table/{appointment_id}", response_model=TableDetail)
 def get_appointment_detail(
     appointment_id: int ,
     db: Session = Depends(get_db),
@@ -224,7 +225,7 @@ def get_appointment_detail(
 # service (usado lá em cima, em update_appointment_route), quebrando
 # a rota PUT /{appointment_id} depois que o módulo carregava essa
 # função por último.
-@router.put("/appointments/{appointment_id}", response_model=TableDetail)
+@router.put("/table/{appointment_id}", response_model=TableDetail)
 def update_appointment_table_route(
     appointment_update: AppointmentUpdate,
     appointment_id: int ,

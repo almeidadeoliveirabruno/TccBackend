@@ -16,6 +16,7 @@ from core.security import hash_cpf, encrypt_cpf, decrypt_cpf
 from models.patient import Patient
 from models.appointment import Appointment, AppointmentStatus
 from models import AppointmentProcedure
+from utils.validators import _validar_cpf, _validar_telefone
 
 
 def validate_birth_date_not_future(birth_date: str) -> None:
@@ -58,6 +59,10 @@ def create_patient(
     clinic_id: str
 ) -> PatientResponseDetail:
     validate_birth_date_not_future(patient_create.birth_date)
+    if not _validar_cpf(patient_create.cpf):
+        raise HTTPException(status_code=422, detail="CPF inválido")
+    if not _validar_telefone(patient_create.phone):
+        raise HTTPException(status_code=422, detail="Telefone inválido")
 
     cpf_hash = hash_cpf(patient_create.cpf)
 
@@ -212,6 +217,12 @@ def update_patient(
     patient_update: PatientUpdate,
     clinic_id: str
 ) -> PatientResponseDetail:
+    if not _validar_telefone(patient_update.phone):
+        raise HTTPException(status_code=422, detail="Telefone inválido")
+
+    if not _validar_cpf(patient_update.cpf):
+        raise HTTPException(status_code=422, detail="CPF inválido")
+
     patient = get_patient_by_id(db, patient_id, clinic_id)
 
     if patient_update.birth_date:

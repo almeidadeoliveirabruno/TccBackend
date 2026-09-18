@@ -6,6 +6,80 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, case
 from models.appointment import AppointmentStatus
 from models.associations.appointment_procedure import AppointmentProcedure
+from datetime import date, timedelta
+from typing import Literal
+
+Granularity = Literal["day", "week", "month"]
+ 
+ 
+def _week_start(d: date) -> date:
+    '''A função retorna a data da segunda feira daquela semana'''
+    return d - timedelta(days=d.weekday())
+ 
+ 
+def _add_month(d: date, months: int = 1) -> date:
+    '''Realiza uma soma ou subtração dos meses, retorna o dia 1 do mês resultante'''
+    month_index = d.month - 1 + months
+    year = d.year + month_index // 12
+    month = month_index % 12 + 1
+    return date(year, month, 1)
+ 
+ 
+def generate_periods(
+    start_date: date,
+    end_date: date,
+    granularity: Granularity = "month",
+) -> list:
+    '''Gera as datas faltantes, impedindo problemas no gráfico'''
+    periods = []
+ 
+    if granularity == "day":
+        current = start_date
+        while current <= end_date:
+            periods.append(current)
+            current += timedelta(days=1)
+ 
+    elif granularity == "week":
+        current = _week_start(start_date)
+        last_week = _week_start(end_date)
+        while current <= last_week:
+            periods.append(current)
+            current += timedelta(weeks=1)
+ 
+    elif granularity == "month":
+        current = start_date.replace(day=1)
+        last_month = end_date.replace(day=1)
+        while current <= last_month:
+            periods.append((current.year, current.month))
+            current = _add_month(current)
+ 
+    else:
+        raise ValueError(f"Granularidade inválida: {granularity}")
+ 
+    return periods
+ 
+ 
+def fill_missing_periods(
+    results,
+    start_date: date,
+    end_date: date,
+    granularity: Granularity,
+    key_fn,
+    build_row_fn,
+    empty_row_fn,
+):
+    periods = generate_periods(start_date, end_date, granularity)
+    index = {key_fn(row): row for row in results}
+ 
+    filled = []
+    for period in periods:
+        row = index.get(period)
+        if row is not None:
+            filled.append(build_row_fn(period, row))
+        else:
+            filled.append(empty_row_fn(period))
+ 
+    return filled
 
 # Controle Dentistas
 #gráfico de barras lateral
@@ -410,6 +484,8 @@ def profit(
         "profit": revenue - expense
     }
 
+
+#gráfico de linha
 def attendance_percentage(
     db: Session,
     clinic_id: str,

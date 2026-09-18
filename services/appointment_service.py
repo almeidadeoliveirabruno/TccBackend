@@ -653,6 +653,12 @@ def update_appointment(
 
     if appointment_update.procedures is not None:
 
+        if len(appointment_update.procedures) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="A consulta deve ter ao menos um procedimento",
+            )
+
         procedures = _get_procedures_or_404(
             db,
             appointment_update.procedures,
@@ -715,7 +721,6 @@ def update_appointment(
         # Recalcula os preços apenas quando os
         # procedimentos foram de fato alterados.
         price_map = _procedures_price_map(procedures)
-        
 
         for item in appointment_update.procedures:
 
@@ -727,7 +732,8 @@ def update_appointment(
                 )
             )
 
-    update_price_by_appointment(db, appointment, clinic_id)
+        update_price_by_appointment(db, appointment, clinic_id)
+
     # Mudou a consulta, precisa reconfirmar.
     appointment.status = AppointmentStatus.AGENDADO
     appointment.confirmation_message_sent = False
@@ -963,15 +969,6 @@ def get_appointments_by_clinic_id_for_table(
 
     skip = (page - 1) * page_size
 
-    price_subquery = (
-        db.query(
-            AppointmentProcedure.appointment_id.label("appointment_id"),
-            func.sum(AppointmentProcedure.unit_price).label("total_price"),
-        )
-        .group_by(AppointmentProcedure.appointment_id)
-        .subquery()
-    )
-
     query = (
         db.query(
             Appointment.id,
@@ -981,16 +978,11 @@ def get_appointments_by_clinic_id_for_table(
             Appointment.time_begin,
             Appointment.status,
             Appointment.confirmation_message_sent,
-            func.coalesce(price_subquery.c.total_price, 0).label(
-                "total_price"
-            ),
+            func.coalesce(Receivable.total_amount, 0).label("total_price"),
         )
         .join(Appointment.patient)
         .join(Appointment.dentist)
-        .outerjoin(
-            price_subquery,
-            price_subquery.c.appointment_id == Appointment.id,
-        )
+        .outerjoin(Receivable, Receivable.appointment_id == Appointment.id)
         .filter(Appointment.clinic_id == clinic_id)
     )
 

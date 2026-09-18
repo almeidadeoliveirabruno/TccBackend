@@ -238,18 +238,19 @@ def revenue_by_month_billing(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
 ):
+    if end_date is None:
+        end_date = date.today()
+    if start_date is None:
+        start_date = _add_month(end_date.replace(day=1), -11)
+
     filters = [
         Receivable.clinic_id == clinic_id,
         Receivable.status == ReceivableStatus.PAGO.value,
+        Receivable.paid_at >= start_date,
+        Receivable.paid_at <= end_date,
     ]
 
-    if start_date:
-        filters.append(Receivable.paid_at >= start_date)
-
-    if end_date:
-        filters.append(Receivable.paid_at <= end_date)
-
-    return (
+    results = (
         db.query(
             func.year(Receivable.paid_at).label("year"),
             func.month(Receivable.paid_at).label("month"),
@@ -265,6 +266,24 @@ def revenue_by_month_billing(
             func.month(Receivable.paid_at)
         )
         .all()
+    )
+
+    return fill_missing_periods(
+        results=results,
+        start_date=start_date,
+        end_date=end_date,
+        granularity="month",
+        key_fn=lambda row: (row.year, row.month),
+        build_row_fn=lambda period, row: {
+            "year": period[0],
+            "month": period[1],
+            "total_revenue": row.total_revenue,
+        },
+        empty_row_fn=lambda period: {
+            "year": period[0],
+            "month": period[1],
+            "total_revenue": 0,
+        },
     )
 
 #gráfico de linhas/área que vai juntar com receita
@@ -373,63 +392,105 @@ def expenses_count(
     ]
 
 #Gráfico de linha
-def attendance_by_month(
+def appointments_count_by_period(
+    db: Session,
+    clinic_id: str,
+    granularity: Granularity = "month",
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+):
+    if end_date is None:
+        end_date = date.today()
+    if start_date is None:
+        start_date = _add_month(end_date.replace(day=1), -11)
+
+    filters = [
+        Appointment.clinic_id == clinic_id,
+        Appointment.status == AppointmentStatus.REALIZADO.value,
+        Appointment.appointment_date >= start_date,
+        Appointment.appointment_date <= end_date,
+    ]
+
+    if granularity == "month":
+        group_cols = [
+            func.year(Appointment.appointment_date).label("year"),
+            func.month(Appointment.appointment_date).label("month"),
+        ]
+        key_fn = lambda row: (row.year, row.month)
+        build_row_fn = lambda period, row: {"year": period[0], "month": period[1], "count": row.count}
+        empty_row_fn = lambda period: {"year": period[0], "month": period[1], "count": 0}
+
+    elif granularity == "day":
+        group_cols = [Appointment.appointment_date.label("appointment_date")]
+        key_fn = lambda row: row.appointment_date
+        build_row_fn = lambda period, row: {"date": period, "count": row.count}
+        empty_row_fn = lambda period: {"date": period, "count": 0}
+
+    else:
+        raise ValueError(f"Granularidade inválida: {granularity}")
+
+    results = (
+        db.query(*group_cols, func.count(Appointment.id).label("count"))
+        .filter(*filters)
+        .group_by(*group_cols)
+        .order_by(*group_cols)
+        .all()
+    )
+
+    return fill_missing_periods(
+        results=results,
+        start_date=start_date,
+        end_date=end_date,
+        granularity=granularity,
+        key_fn=key_fn,
+        build_row_fn=build_row_fn,
+        empty_row_fn=empty_row_fn,
+    )
+
+def dentists_daily_appointments(
     db: Session,
     clinic_id: str,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
 ):
+    if end_date is None:
+        end_date = date.today()
+    if start_date is None:
+        start_date = _add_month(end_date.replace(day=1), -11)
+
     filters = [
         Appointment.clinic_id == clinic_id,
-        Appointment.status.in_([
-            AppointmentStatus.REALIZADO.value,
-            AppointmentStatus.FALTOU.value,
-        ])
+        Appointment.status == AppointmentStatus.REALIZADO.value,
+        Appointment.appointment_date >= start_date,
+        Appointment.appointment_date <= end_date,
     ]
-
-    if start_date:
-        filters.append(Appointment.appointment_date >= start_date)
-
-    if end_date:
-        filters.append(Appointment.appointment_date <= end_date)
-
-    realized = func.sum(
-        case(
-            (Appointment.status == AppointmentStatus.REALIZADO.value, 1),
-            else_=0
-        )
-    )
-
-    total = func.count(Appointment.id)
 
     results = (
         db.query(
-            func.year(Appointment.appointment_date).label("year"),
-            func.month(Appointment.appointment_date).label("month"),
-            realized.label("realized"),
-            func.sum(
-                case(
-                    (Appointment.status == AppointmentStatus.FALTOU.value, 1),
-                    else_=0
-                )
-            ).label("absent"),
-            (
-                realized * 100.0 / func.nullif(total, 0)
-            ).label("attendance_percentage")
+            Appointment.appointment_date.label("appointment_date"),
+            func.count(Appointment.id).label("count")
         )
         .filter(*filters)
-        .group_by(
-            func.year(Appointment.appointment_date),
-            func.month(Appointment.appointment_date)
-        )
-        .order_by(
-            func.year(Appointment.appointment_date),
-            func.month(Appointment.appointment_date)
-        )
+        .group_by(Appointment.appointment_date)
+        .order_by(Appointment.appointment_date)
         .all()
     )
 
-    return results
+    return fill_missing_periods(
+        results=results,
+        start_date=start_date,
+        end_date=end_date,
+        granularity="day",
+        key_fn=lambda row: row.appointment_date,
+        build_row_fn=lambda period, row: {
+            "date": period,
+            "count": row.count,
+        },
+        empty_row_fn=lambda period: {
+            "date": period,
+            "count": 0,
+        },
+    )
 
 
 #cards

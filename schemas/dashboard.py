@@ -42,12 +42,10 @@ class AppointmentCount(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-class AttendanceByMonth(BaseModel):
+class AppointmentByMonth(BaseModel):
     year: int
     month: int
-    realized: int
-    absent: int
-    attendance_percentage: float
+    count: int
 
 #Cards
 class Profit(BaseModel):

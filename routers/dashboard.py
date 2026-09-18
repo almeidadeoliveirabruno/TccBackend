@@ -12,7 +12,7 @@ from schemas.dashboard import (
     RevenueByMonth,
     ExpenseByMonth,
     AppointmentCount,
-    AttendanceByMonth,
+    AppointmentByMonth,
     Profit,
     AttendancePercentage
                                )
@@ -25,10 +25,13 @@ from services.dashboard_service import (
     expense_by_month_billing,
     revenue_by_month_billing,
     appointments_count,
-    attendance_by_month,
+    appointments_count_by_period,
     profit,
     attendance_percentage
     )
+from typing import Literal
+
+Granularity = Literal["day", "week", "month"]
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -103,14 +106,15 @@ def appointments_count_route(
     return appointments_count(db, clinic_id, start_date, end_date)
 
 #gráfico de linha
-@router.get("/attendance-summary", response_model=list[AttendanceByMonth])
-def attendance_summary_route(
+@router.get("/appointments-count-by-period", response_model=list[AppointmentByMonth])
+def appointments_summary_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
+    granularity: Granularity = Query("month"),
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
 ):
-    return attendance_by_month(db, clinic_id, start_date, end_date)
+    return appointments_count_by_period(db, clinic_id, granularity, start_date, end_date)
 
 #card 1,2 e 3
 @router.get("/profit-cards", response_model=Profit)

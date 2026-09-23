@@ -49,10 +49,10 @@ def _validate_unique_name(
 
 def _validate_time_duration(duration: int | None):
     """Valida se a duração do procedimento não é negativa."""
-    if duration is not None and duration < 0:
+    if duration is not None and duration <= 0:
         raise HTTPException(
             status_code=400,
-            detail="A duração do procedimento não pode ser negativa"
+            detail="A duração do procedimento não pode ser negativa ou zero"
         )
 
 # Função para criar um procedimento, associando-o à clínica do usuário autenticado

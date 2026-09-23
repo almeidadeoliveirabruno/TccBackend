@@ -12,7 +12,7 @@ from schemas.dashboard import (
     RevenueByMonth,
     ExpenseByMonth,
     AppointmentCount,
-    AppointmentByMonth,
+    AppointmentPeriodResult,
     Profit,
     AttendancePercentage
                                )
@@ -106,7 +106,7 @@ def appointments_count_route(
     return appointments_count(db, clinic_id, start_date, end_date)
 
 #gráfico de linha
-@router.get("/appointments-count-by-period", response_model=list[AppointmentByMonth])
+@router.get("/appointments-count-by-period", response_model=list[AppointmentPeriodResult])
 def appointments_summary_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),

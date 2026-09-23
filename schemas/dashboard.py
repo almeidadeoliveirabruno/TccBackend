@@ -1,6 +1,8 @@
 from pydantic import BaseModel, ConfigDict
 from decimal import Decimal
 from models.appointment import AppointmentStatus
+from typing import Union
+from datetime import date
 
 class DentistBillingSummary(BaseModel):
     name: str
@@ -46,6 +48,12 @@ class AppointmentByMonth(BaseModel):
     year: int
     month: int
     count: int
+
+class AppointmentByDay(BaseModel):
+    date: date
+    count: int
+
+AppointmentPeriodResult = Union[AppointmentByMonth, AppointmentByDay]
 
 #Cards
 class Profit(BaseModel):

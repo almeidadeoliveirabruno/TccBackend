@@ -34,6 +34,7 @@ class ReceivableResponse(BaseModel):
 class ReceivableTable(BaseModel):
     id: int
     dentist_name: str
+    patient_name:str
     appointment_date: date 
     total_amount: Decimal
     status: ReceivableStatus

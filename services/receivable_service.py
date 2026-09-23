@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from models.dentist import Dentist
+from models.patient import Patient
 from models.receivable import Receivable
 from models.appointment import Appointment
 from schemas.common import PaginatedResponse
@@ -121,8 +122,10 @@ def list_receivables(
         Appointment.appointment_date,
         Appointment.id.label("appointment_id"),
         Receivable.status,
+        Patient.name.label("patient_name"),
         Dentist.name.label("dentist_name"))        
         .join(Appointment, Receivable.appointment_id == Appointment.id)
+        .join(Patient,Appointment.patient_id == Patient.id)
         .join(Dentist, Appointment.dentist_id == Dentist.id)
         .filter(Receivable.clinic_id == clinic_id)
     )

@@ -16,7 +16,7 @@ from core.security import hash_cpf, encrypt_cpf, decrypt_cpf
 from models.patient import Patient
 from models.appointment import Appointment, AppointmentStatus
 from models import AppointmentProcedure
-from utils.validators import _validar_cpf, _validar_telefone
+from utils.validators import _validar_cpf, _validar_telefone, _validar_email
 
 
 def validate_birth_date_not_future(birth_date: str) -> None:
@@ -27,6 +27,20 @@ def validate_birth_date_not_future(birth_date: str) -> None:
 
     if parsed_date > date.today():
         raise HTTPException(status_code=422, detail="A data de nascimento não pode ser no futuro")
+
+
+def validate_patient_fields(
+    cpf: str | None = None,
+    phone: str | None = None,
+    email: str | None = None,
+) -> None:
+    """Valida CPF, telefone e e-mail do paciente, levantando HTTPException em caso de erro."""
+    if cpf is not None and not _validar_cpf(cpf):
+        raise HTTPException(status_code=422, detail="CPF inválido")
+    if phone is not None and not _validar_telefone(phone):
+        raise HTTPException(status_code=422, detail="Telefone inválido")
+    if email is not None and not _validar_email(email):
+        raise HTTPException(status_code=422, detail="E-mail inválido")
 
 
 def _to_patient_detail(patient: Patient, cpf_plain: str | None = None) -> PatientResponseDetail:
@@ -59,10 +73,11 @@ def create_patient(
     clinic_id: str
 ) -> PatientResponseDetail:
     validate_birth_date_not_future(patient_create.birth_date)
-    if not _validar_cpf(patient_create.cpf):
-        raise HTTPException(status_code=422, detail="CPF inválido")
-    if not _validar_telefone(patient_create.phone):
-        raise HTTPException(status_code=422, detail="Telefone inválido")
+    validate_patient_fields(
+        cpf=patient_create.cpf,
+        phone=patient_create.phone,
+        email=patient_create.email,
+    )
 
     cpf_hash = hash_cpf(patient_create.cpf)
 
@@ -217,11 +232,11 @@ def update_patient(
     patient_update: PatientUpdate,
     clinic_id: str
 ) -> PatientResponseDetail:
-    if not _validar_telefone(patient_update.phone):
-        raise HTTPException(status_code=422, detail="Telefone inválido")
-
-    if not _validar_cpf(patient_update.cpf):
-        raise HTTPException(status_code=422, detail="CPF inválido")
+    validate_patient_fields(
+        cpf=patient_update.cpf,
+        phone=patient_update.phone,
+        email=patient_update.email,
+    )
 
     patient = get_patient_by_id(db, patient_id, clinic_id)
 

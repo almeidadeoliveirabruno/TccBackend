@@ -3,7 +3,7 @@ from typing import Optional
 from models import *
 from enums.ReceivableStatus import ReceivableStatus
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, case
+from sqlalchemy import func, and_, case, cast, Date
 from models.appointment import AppointmentStatus
 from models.associations.appointment_procedure import AppointmentProcedure
 from datetime import date, timedelta
@@ -91,9 +91,9 @@ def dentists_billing(
 ):
     receivable_conditions = [Receivable.status == ReceivableStatus.PAGO.value]
     if start_date:
-        receivable_conditions.append(Receivable.paid_at >= start_date)
+        receivable_conditions.append(cast(Receivable.paid_at, Date) >= start_date)
     if end_date:
-        receivable_conditions.append(Receivable.paid_at <= end_date)
+        receivable_conditions.append(cast(Receivable.paid_at, Date) <= end_date)
 
     results = (
         db.query(
@@ -162,9 +162,9 @@ def procedures_billing(
     appointment_conditions = [Appointment.clinic_id == clinic_id]
     receivable_conditions = [Receivable.status == ReceivableStatus.PAGO.value]
     if start_date:
-        receivable_conditions.append(Receivable.paid_at >= start_date)
+        receivable_conditions.append(cast(Receivable.paid_at, Date) >= start_date)
     if end_date:
-        receivable_conditions.append(Receivable.paid_at <= end_date)
+        receivable_conditions.append(cast(Receivable.paid_at, Date) <= end_date)
 
     results = (
         db.query(
@@ -246,8 +246,8 @@ def revenue_by_month_billing(
     filters = [
         Receivable.clinic_id == clinic_id,
         Receivable.status == ReceivableStatus.PAGO.value,
-        Receivable.paid_at >= start_date,
-        Receivable.paid_at <= end_date,
+        cast(Receivable.paid_at, Date) >= start_date,
+        cast(Receivable.paid_at, Date) <= end_date,
     ]
 
     results = (
@@ -510,11 +510,11 @@ def profit(
     ]
 
     if start_date:
-        revenue_filters.append(Receivable.paid_at >= start_date)
+        revenue_filters.append(cast(Receivable.paid_at, Date) >= start_date)
         expense_filters.append(Expense.due_date >= start_date)
 
     if end_date:
-        revenue_filters.append(Receivable.paid_at <= end_date)
+        revenue_filters.append(cast(Receivable.paid_at, Date) <= end_date)
         expense_filters.append(Expense.due_date <= end_date)
 
     revenue = (

@@ -455,6 +455,7 @@ def get_available_times(
     appointment_date: date,
     duration_minutes: int,
     clinic_id: str,
+    exclude_appointment_id: int | None = None,
 ) -> list[str]:
     """
     Retorna os horários livres de um dentista.
@@ -489,7 +490,7 @@ def get_available_times(
     if not schedules:
         return []
 
-    appointments = (
+    appt_query = (
         db.query(Appointment)
         .filter(
             Appointment.dentist_id == dentist_id,
@@ -502,8 +503,12 @@ def get_available_times(
                 ]
             ),
         )
-        .all()
     )
+
+    if exclude_appointment_id is not None:
+        appt_query = appt_query.filter(Appointment.id != exclude_appointment_id)
+
+    appointments = appt_query.all()
 
     available = []
 
@@ -775,9 +780,10 @@ def mark_confirmation_message_sent(
     db: Session,
     appointment_id: int,
     clinic_id: str,
+    sent: bool = True,
 ) -> Appointment:
     """
-    Marca que o WhatsApp foi enviado.
+    Marca ou desmarca se a mensagem de confirmação no WhatsApp foi enviada.
     """
 
     appointment = get_appointment_by_id(
@@ -786,7 +792,7 @@ def mark_confirmation_message_sent(
         clinic_id,
     )
 
-    appointment.confirmation_message_sent = True
+    appointment.confirmation_message_sent = sent
 
     db.flush()
     db.refresh(appointment)

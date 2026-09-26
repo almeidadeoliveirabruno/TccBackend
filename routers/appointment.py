@@ -42,6 +42,7 @@ def get_available_times_route(
     dentist_id: int = Query(...),
     appointment_date: date = Query(...),
     duration_minutes: int = Query(..., gt=0),
+    exclude_appointment_id: int | None = Query(None),
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
@@ -50,6 +51,7 @@ def get_available_times_route(
         dentist_id=dentist_id,
         appointment_date=appointment_date,
         duration_minutes=duration_minutes,
+        exclude_appointment_id=exclude_appointment_id,
         clinic_id=clinic_id,
     )
 
@@ -152,6 +154,7 @@ def confirm_appointment_route(
 @router.patch("/{appointment_id}/confirmation-message", response_model=AppointmentResponse)
 def mark_confirmation_message_sent_route(
     appointment_id: int,
+    sent: bool = Query(True),
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
@@ -159,6 +162,7 @@ def mark_confirmation_message_sent_route(
         db,
         appointment_id,
         clinic_id,
+        sent=sent,
     )
 
 @router.patch("/{appointment_id}/status", response_model=AppointmentResponse)

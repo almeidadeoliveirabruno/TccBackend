@@ -1,10 +1,11 @@
 import math
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from fastapi import HTTPException
 from models.dentist import Dentist, DentistStatus
 from models.specialty import Specialty
 from models.associations.dentist_specialties import dentist_specialties
+from models.address import Address
 from schemas.dentist import DentistCreate, DentistUpdate, DentistResponseDetail
 from core.security import hash_cpf, encrypt_cpf, decrypt_cpf
 from utils.validators import _validar_cpf, _validar_telefone, _validar_email
@@ -30,22 +31,23 @@ def validate_dentist_fields(
 def _to_dentist_detail(dentist: Dentist, cpf_plain: str | None = None) -> DentistResponseDetail:
     """Monta a resposta de detalhe, descriptografando o CPF quando não veio pronto."""
     cpf = cpf_plain if cpf_plain is not None else decrypt_cpf(dentist.cpf_encrypted)
+    addr = dentist.address
     return DentistResponseDetail(
-            id= dentist.id,
-            name= dentist.name,
-            email= dentist.email,
-            phone= dentist.phone,
-            cro= dentist.cro,
-            cpf= dentist.cpf, 
-            specialties= dentist.specialties,
-            status= dentist.status,
-            street= dentist.street,
-            number= dentist.number,
-            complement= dentist.complement,
-            neighborhood= dentist.neighborhood,
-            city= dentist.city,
-            state= dentist.state,
-            cep= dentist.cep
+        id=dentist.id,
+        name=dentist.name,
+        email=dentist.email,
+        phone=dentist.phone,
+        cro=dentist.cro,
+        cpf=cpf, 
+        specialties=dentist.specialties,
+        status=dentist.status,
+        street=addr.street if addr else "",
+        number=addr.number if addr else "",
+        complement=addr.complement if addr else None,
+        neighborhood=addr.neighborhood if addr else "",
+        city=addr.city if addr else "",
+        state=addr.state if addr else "",
+        cep=addr.cep if addr else "",
     )
 
 def _check_duplicate_fields(
@@ -152,6 +154,18 @@ def create_dentist(db: Session, dentist_create: DentistCreate, clinic_id: str):
     normalized_cro = _normalize_cro(dentist_create.cro)
     specialties = _resolve_specialties(db, dentist_create.specialties)
 
+    address = Address(
+        street=dentist_create.street,
+        number=dentist_create.number,
+        complement=dentist_create.complement,
+        neighborhood=dentist_create.neighborhood,
+        city=dentist_create.city,
+        state=dentist_create.state,
+        cep=dentist_create.cep,
+    )
+    db.add(address)
+    db.flush()
+
     dentist = Dentist(
         name=dentist_create.name.title(),
         cpf_hash=cpf_hash,
@@ -161,13 +175,7 @@ def create_dentist(db: Session, dentist_create: DentistCreate, clinic_id: str):
         clinic_id=clinic_id,
         cro=normalized_cro,
         specialties=specialties,
-        street=dentist_create.street,
-        number=dentist_create.number,
-        complement=dentist_create.complement,
-        neighborhood=dentist_create.neighborhood,
-        city=dentist_create.city,
-        state=dentist_create.state,
-        cep=dentist_create.cep,
+        address_id=address.id,
         status=dentist_create.status,
     )
 
@@ -179,6 +187,7 @@ def create_dentist(db: Session, dentist_create: DentistCreate, clinic_id: str):
 def get_dentist_by_id(db: Session, dentist_id: int, clinic_id: str) -> Dentist:
     dentist = (
         db.query(Dentist)
+        .options(joinedload(Dentist.address))
         .filter(Dentist.id == dentist_id, Dentist.clinic_id == clinic_id)
         .first()
     )
@@ -258,12 +267,26 @@ def update_dentist(
         email=dentist_update.email,
     )
 
+    address_fields = {"street", "number", "complement", "neighborhood", "city", "state", "cep"}
     data = dentist_update.model_dump(
         exclude_unset=True,
         exclude={"specialties", "cro", "cpf"},
     )
-    for key, value in data.items():
+    address_data = {k: v for k, v in data.items() if k in address_fields}
+    dentist_data = {k: v for k, v in data.items() if k not in address_fields}
+
+    for key, value in dentist_data.items():
         setattr(dentist, key, value)
+
+    if address_data:
+        if dentist.address:
+            for key, value in address_data.items():
+                setattr(dentist.address, key, value)
+        else:
+            new_address = Address(**address_data)
+            db.add(new_address)
+            db.flush()
+            dentist.address_id = new_address.id
 
     # ===== Atualização do CPF (se fornecido) =====
     if dentist_update.cpf is not None:
@@ -296,6 +319,8 @@ def update_dentist_status(
 
 def delete_dentist(db: Session, dentist_id: int, clinic_id: str):
     dentist = get_dentist_by_id(db, dentist_id, clinic_id)
+    if dentist.address:
+        db.delete(dentist.address)
     db.delete(dentist)
     db.flush()
     return dentist

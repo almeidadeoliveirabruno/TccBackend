@@ -30,14 +30,17 @@ class Patient(Base):
     observations = Column(String, nullable=True)
     health_plan = Column(String, nullable=True)
     profession = Column(String, nullable=True)
+    address_id = Column(
+        Integer,
+        ForeignKey("addresses.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
-    street = Column(String, nullable=False)
-    number = Column(String, nullable=False)
-    complement = Column(String, nullable=True)
-    neighborhood = Column(String, nullable=False)
-    city = Column(String, nullable=False)
-    state = Column(String, nullable=False)
-    cep = Column(String, nullable=True)
+    address = relationship(
+        "Address",
+        cascade="all, delete-orphan",
+        single_parent=True,
+    )
 
     clinic_id = Column(
         String(36),

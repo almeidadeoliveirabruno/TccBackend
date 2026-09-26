@@ -47,14 +47,17 @@ class Dentist(Base):
         ForeignKey("clinics.id"),
         nullable=False
     )
+    address_id = Column(
+        Integer,
+        ForeignKey("addresses.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
-    street = Column(String, nullable=False)
-    number = Column(String, nullable=False)
-    complement = Column(String, nullable=True)
-    neighborhood = Column(String, nullable=False)
-    city = Column(String, nullable=False)
-    state = Column(String, nullable=False)
-    cep = Column(String, nullable=True)
+    address = relationship(
+        "Address",
+        cascade="all, delete-orphan",
+        single_parent=True,
+    )
 
     __table_args__ = (
         UniqueConstraint(

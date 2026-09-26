@@ -6,6 +6,7 @@ from sqlalchemy import func
 from fastapi import HTTPException
 
 from models.patient import Patient
+from models.address import Address
 from schemas.patient import (
     PatientCreate,
     PatientUpdate,
@@ -13,7 +14,6 @@ from schemas.patient import (
     PatientResponseDetail,
 )
 from core.security import hash_cpf, encrypt_cpf, decrypt_cpf
-from models.patient import Patient
 from models.appointment import Appointment, AppointmentStatus
 from models import AppointmentProcedure
 from utils.validators import _validar_cpf, _validar_telefone, _validar_email
@@ -46,6 +46,7 @@ def validate_patient_fields(
 def _to_patient_detail(patient: Patient, cpf_plain: str | None = None) -> PatientResponseDetail:
     """Monta a resposta de detalhe, descriptografando o CPF quando não veio pronto."""
     cpf = cpf_plain if cpf_plain is not None else decrypt_cpf(patient.cpf_encrypted)
+    addr = patient.address
     return PatientResponseDetail(
         id=patient.id,
         name=patient.name,
@@ -57,13 +58,13 @@ def _to_patient_detail(patient: Patient, cpf_plain: str | None = None) -> Patien
         observations=patient.observations,
         health_plan=patient.health_plan,
         profession=patient.profession,
-        street=patient.street,
-        number=patient.number,
-        complement=patient.complement,
-        neighborhood=patient.neighborhood,
-        city=patient.city,
-        state=patient.state,
-        cep=patient.cep,
+        street=addr.street if addr else "",
+        number=addr.number if addr else "",
+        complement=addr.complement if addr else None,
+        neighborhood=addr.neighborhood if addr else "",
+        city=addr.city if addr else "",
+        state=addr.state if addr else "",
+        cep=addr.cep if addr else "",
     )
 
 
@@ -92,6 +93,18 @@ def create_patient(
             detail="Já existe um paciente com esse CPF cadastrado nesta clínica",
         )
 
+    address = Address(
+        street=patient_create.street,
+        number=patient_create.number,
+        complement=patient_create.complement,
+        neighborhood=patient_create.neighborhood,
+        city=patient_create.city,
+        state=patient_create.state,
+        cep=patient_create.cep,
+    )
+    db.add(address)
+    db.flush()
+
     patient = Patient(
         name=patient_create.name.title(),
         email=patient_create.email,
@@ -103,13 +116,7 @@ def create_patient(
         observations=patient_create.observations,
         health_plan=patient_create.health_plan,
         profession=patient_create.profession,
-        street=patient_create.street,
-        number=patient_create.number,
-        complement=patient_create.complement,
-        neighborhood=patient_create.neighborhood,
-        city=patient_create.city,
-        state=patient_create.state,
-        cep=patient_create.cep,
+        address_id=address.id,
         clinic_id=clinic_id
     )
 
@@ -123,6 +130,7 @@ def get_patient_by_id(db: Session, patient_id: int, clinic_id: str) -> Patient:
     """Retorna o objeto ORM cru. Usado internamente por update/delete/detail."""
     patient = (
         db.query(Patient)
+        .options(joinedload(Patient.address))
         .filter(Patient.id == patient_id, Patient.clinic_id == clinic_id)
         .first()
     )
@@ -243,6 +251,7 @@ def update_patient(
     if patient_update.birth_date:
         validate_birth_date_not_future(patient_update.birth_date)
 
+    address_fields = {"street", "number", "complement", "neighborhood", "city", "state", "cep"}
     data = patient_update.model_dump(exclude_unset=True)
 
     # se o CPF foi atualizado, recalcula hash e criptografado
@@ -271,8 +280,21 @@ def update_patient(
         patient.cpf_hash = new_cpf_hash
         patient.cpf_encrypted = encrypt_cpf(new_cpf)
 
-    for field, value in data.items():
+    address_data = {k: v for k, v in data.items() if k in address_fields}
+    patient_data = {k: v for k, v in data.items() if k not in address_fields}
+
+    for field, value in patient_data.items():
         setattr(patient, field, value)
+
+    if address_data:
+        if patient.address:
+            for key, value in address_data.items():
+                setattr(patient.address, key, value)
+        else:
+            new_address = Address(**address_data)
+            db.add(new_address)
+            db.flush()
+            patient.address_id = new_address.id
 
     db.flush()
 
@@ -285,6 +307,8 @@ def delete_patient(
     clinic_id: str
 ):
     patient = get_patient_by_id(db, patient_id, clinic_id)
+    if patient.address:
+        db.delete(patient.address)
 
     db.delete(patient)
     db.flush()

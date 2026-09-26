@@ -47,7 +47,7 @@ class DentistCreate(BaseModel):
     neighborhood: str
     city: str
     state: str
-    cep: str
+    cep: str | None = None
     schedules: list[ScheduleItem] | None = None
 
 
@@ -122,7 +122,7 @@ class DentistResponseDetail(BaseModel):
     neighborhood: str
     city: str
     state: str
-    cep: str
+    cep: str | None = None
 
     @field_validator("specialties", mode="before")
     @classmethod

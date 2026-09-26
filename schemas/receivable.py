@@ -39,3 +39,4 @@ class ReceivableTable(BaseModel):
     total_amount: Decimal
     status: ReceivableStatus
     appointment_id: int
+    appointment_status: Optional[str] = None

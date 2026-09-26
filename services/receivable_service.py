@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from models.dentist import Dentist
 from models.patient import Patient
 from models.receivable import Receivable
-from models.appointment import Appointment
+from models.appointment import Appointment, AppointmentStatus
 from schemas.common import PaginatedResponse
 from schemas.receivable import ReceivableUpdate
 from enums.ReceivableStatus import ReceivableStatus
@@ -117,15 +117,18 @@ def list_receivables(
     skip = (page - 1) * page_size
 
     query = (
-        db.query(Receivable.id,
-        Receivable.total_amount,
-        Appointment.appointment_date,
-        Appointment.id.label("appointment_id"),
-        Receivable.status,
-        Patient.name.label("patient_name"),
-        Dentist.name.label("dentist_name"))        
+        db.query(
+            Receivable.id,
+            Receivable.total_amount,
+            Appointment.appointment_date,
+            Appointment.id.label("appointment_id"),
+            Appointment.status.label("appointment_status"),
+            Receivable.status,
+            Patient.name.label("patient_name"),
+            Dentist.name.label("dentist_name"),
+        )
         .join(Appointment, Receivable.appointment_id == Appointment.id)
-        .join(Patient,Appointment.patient_id == Patient.id)
+        .join(Patient, Appointment.patient_id == Patient.id)
         .join(Dentist, Appointment.dentist_id == Dentist.id)
         .filter(Receivable.clinic_id == clinic_id)
     )
@@ -171,6 +174,11 @@ def update_receivable(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Não é possível editar uma conta a receber cancelada",
         )
+    if receivable.appointment and receivable.appointment.status == AppointmentStatus.CANCELADO.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível alterar uma conta vinculada a uma consulta cancelada",
+        )
 
     update_data = data.model_dump(exclude_unset=True)
 
@@ -207,6 +215,8 @@ def mark_receivable_as_paid(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Não é possível marcar como paga uma conta cancelada")
     if receivable.status == ReceivableStatus.PAGO.value:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Conta já está paga")
+    if receivable.appointment and receivable.appointment.status == AppointmentStatus.CANCELADO.value:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Não é possível registrar pagamento para uma consulta cancelada")
 
     paid_at = _to_naive_utc(paid_at) if paid_at else datetime.utcnow()
     # if paid_at > datetime.utcnow():

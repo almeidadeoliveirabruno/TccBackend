@@ -139,12 +139,6 @@ def _get_procedures_or_404(
 
     for procedure in procedures:
 
-        if not procedure.status:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Procedimento '{procedure.name}' está inativo",
-            )
-
         if procedure.duration is None or procedure.duration < 0:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -288,6 +282,7 @@ def _validate_no_conflict(
     active_statuses = [
         AppointmentStatus.AGENDADO.value,
         AppointmentStatus.CONFIRMADO.value,
+        AppointmentStatus.REALIZADO.value,
     ]
 
     query = (
@@ -712,6 +707,12 @@ def update_appointment(
         exclude_id=appointment.id,
     )
 
+    date_or_time_changed = (
+        new_date != appointment.appointment_date
+        or new_begin != appointment.time_begin
+        or new_end != appointment.time_end
+    )
+
     appointment.appointment_date = new_date
     appointment.time_begin = new_begin
     appointment.time_end = new_end
@@ -739,9 +740,13 @@ def update_appointment(
 
         update_price_by_appointment(db, appointment, clinic_id)
 
-    # Mudou a consulta, precisa reconfirmar.
-    appointment.status = AppointmentStatus.AGENDADO
-    appointment.confirmation_message_sent = False
+    # Se a data ou horário mudou, precisa reconfirmar e volta para AGENDADO.
+    # Caso contrário, preserva status de REALIZADO, CONFIRMADO ou FALTOU se a consulta já estava nesses estados.
+    if date_or_time_changed:
+        appointment.status = AppointmentStatus.AGENDADO
+        appointment.confirmation_message_sent = False
+    elif appointment.status not in [AppointmentStatus.REALIZADO, AppointmentStatus.FALTOU, AppointmentStatus.CONFIRMADO]:
+        appointment.status = AppointmentStatus.AGENDADO
 
     db.flush()
     db.refresh(appointment)
@@ -807,7 +812,8 @@ def update_appointment_status(
     clinic_id: str,
 ) -> Appointment:
     """
-    Atualiza o status da consulta.
+    Atualiza o status da consulta com validação de conflito
+    e sincronização de recebíveis.
     """
 
     appointment = get_appointment_by_id(
@@ -816,7 +822,42 @@ def update_appointment_status(
         clinic_id,
     )
 
+    # Se está reativando para um status ativo (agendado, confirmado, realizado),
+    # garante que não haja conflito de horário com outra consulta ativa no mesmo horário.
+    active_statuses = [
+        AppointmentStatus.AGENDADO,
+        AppointmentStatus.CONFIRMADO,
+        AppointmentStatus.REALIZADO,
+    ]
+    if new_status in active_statuses and appointment.status not in active_statuses:
+        _validate_no_conflict(
+            db=db,
+            dentist_id=appointment.dentist_id,
+            patient_id=appointment.patient_id,
+            appointment_date=appointment.appointment_date,
+            time_begin=appointment.time_begin,
+            time_end=appointment.time_end,
+            exclude_id=appointment.id,
+        )
+
     appointment.status = new_status
+
+    # Sincronização com o financeiro (Receivable)
+    receivable = (
+        db.query(Receivable)
+        .filter(
+            Receivable.appointment_id == appointment.id,
+            Receivable.clinic_id == clinic_id,
+        )
+        .first()
+    )
+    if receivable:
+        if new_status == AppointmentStatus.CANCELADO:
+            if receivable.status == "pendente":
+                receivable.status = "cancelado"
+        elif new_status in active_statuses:
+            if receivable.status == "cancelado":
+                receivable.status = "pendente"
 
     db.flush()
     db.refresh(appointment)
@@ -875,6 +916,18 @@ def delete_appointment(
 
     appointment.status = AppointmentStatus.CANCELADO
 
+    # Cancela recebível se estiver pendente
+    receivable = (
+        db.query(Receivable)
+        .filter(
+            Receivable.appointment_id == appointment.id,
+            Receivable.clinic_id == clinic_id,
+        )
+        .first()
+    )
+    if receivable and receivable.status == "pendente":
+        receivable.status = "cancelado"
+
     db.flush()
 
 
@@ -920,7 +973,10 @@ def _get_table_statistics(
 
     total_de_agendamentos = (
         db.query(func.count(Appointment.id))
-        .filter(*base_filter)
+        .filter(
+            *base_filter,
+            Appointment.status != AppointmentStatus.CANCELADO.value,
+        )
         .scalar()
     )
 
@@ -935,7 +991,10 @@ def _get_table_statistics(
 
     pacientes_unicos = (
         db.query(func.count(func.distinct(Appointment.patient_id)))
-        .filter(*base_filter)
+        .filter(
+            *base_filter,
+            Appointment.status != AppointmentStatus.CANCELADO.value,
+        )
         .scalar()
     )
 

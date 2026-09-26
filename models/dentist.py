@@ -32,7 +32,11 @@ class Dentist(Base):
     cro = Column(String(20), nullable=False)
 
     status = Column(
-        SqlEnum(DentistStatus, name="dentist_status"),
+        SqlEnum(
+            DentistStatus,
+            name="dentist_status",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         default=DentistStatus.ATIVO,
         server_default=DentistStatus.ATIVO.value,

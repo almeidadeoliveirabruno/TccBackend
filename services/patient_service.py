@@ -201,7 +201,7 @@ def get_statistics_patients(db: Session, clinic_id: str):
         db.query(Appointment.patient_id)
         .filter(
             Appointment.clinic_id == clinic_id,
-            Appointment.status == AppointmentStatus.REALIZADO,
+            Appointment.status == AppointmentStatus.REALIZADO.value,
             Appointment.appointment_date >= datetime.now().date() - timedelta(days=30)
         )
         .distinct()
@@ -212,7 +212,7 @@ def get_statistics_patients(db: Session, clinic_id: str):
         db.query(Appointment.patient_id)
         .filter(
             Appointment.clinic_id == clinic_id,
-            Appointment.status == AppointmentStatus.REALIZADO,
+            Appointment.status == AppointmentStatus.REALIZADO.value,
             Appointment.appointment_date >= datetime.now().date() - timedelta(days=180)
         )
         .distinct()
@@ -319,7 +319,7 @@ def get_patient_summary(
         .filter(
             Appointment.patient_id == patient_id,
             Appointment.clinic_id == clinic_id,
-            Appointment.status == AppointmentStatus.REALIZADO,
+            Appointment.status == AppointmentStatus.REALIZADO.value,
         )
         .order_by(
             Appointment.appointment_date.desc(),
@@ -339,8 +339,8 @@ def get_patient_summary(
             Appointment.appointment_date >= today,
             Appointment.status.in_(
                 [
-                    AppointmentStatus.AGENDADO,
-                    AppointmentStatus.CONFIRMADO,
+                    AppointmentStatus.AGENDADO.value,
+                    AppointmentStatus.CONFIRMADO.value,
                 ]
             ),
         )
@@ -395,7 +395,7 @@ def get_patient_history(
         .filter(
             Appointment.patient_id == patient_id,
             Appointment.clinic_id == clinic_id,
-            Appointment.status == AppointmentStatus.REALIZADO,
+            Appointment.status == AppointmentStatus.REALIZADO.value,
         )
         .order_by(
             Appointment.appointment_date.desc(),

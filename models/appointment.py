@@ -67,7 +67,11 @@ class Appointment(Base):
     )
 
     status = Column(
-        SqlEnum(AppointmentStatus, name="appointment_status"),
+        SqlEnum(
+            AppointmentStatus,
+            name="appointment_status",
+            values_callable=lambda x: [e.value for e in x],
+        ),
         nullable=False,
         default=AppointmentStatus.AGENDADO,
         server_default=AppointmentStatus.AGENDADO.value,

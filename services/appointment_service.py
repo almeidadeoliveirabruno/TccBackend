@@ -286,8 +286,8 @@ def _validate_no_conflict(
     """
 
     active_statuses = [
-        AppointmentStatus.AGENDADO,
-        AppointmentStatus.CONFIRMADO,
+        AppointmentStatus.AGENDADO.value,
+        AppointmentStatus.CONFIRMADO.value,
     ]
 
     query = (
@@ -412,7 +412,7 @@ def create_appointment(
         appointment_date=appointment_create.appointment_date,
         time_begin=appointment_create.time_begin,
         time_end=time_end,
-        status=AppointmentStatus.AGENDADO,
+        status=AppointmentStatus.AGENDADO.value,
         confirmation_message_sent=False,
         notes=appointment_create.notes,
     )
@@ -496,9 +496,9 @@ def get_available_times(
             Appointment.appointment_date == appointment_date,
             Appointment.status.in_(
                 [
-                    AppointmentStatus.AGENDADO,
-                    AppointmentStatus.CONFIRMADO,
-                    AppointmentStatus.REALIZADO,
+                    AppointmentStatus.AGENDADO.value,
+                    AppointmentStatus.CONFIRMADO.value,
+                    AppointmentStatus.REALIZADO.value,
                 ]
             ),
         )
@@ -922,7 +922,7 @@ def _get_table_statistics(
         db.query(func.count(Appointment.id))
         .filter(
             *base_filter,
-            Appointment.status == AppointmentStatus.FALTOU,
+            Appointment.status == AppointmentStatus.FALTOU.value,
         )
         .scalar()
     )

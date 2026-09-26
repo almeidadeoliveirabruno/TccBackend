@@ -3,7 +3,7 @@ from typing import Optional
 from models import *
 from enums.ReceivableStatus import ReceivableStatus
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, case, cast, Date
+from sqlalchemy import func, and_, case, cast, Date, extract
 from models.appointment import AppointmentStatus
 from models.associations.appointment_procedure import AppointmentProcedure
 from datetime import date, timedelta
@@ -252,18 +252,18 @@ def revenue_by_month_billing(
 
     results = (
         db.query(
-            func.year(Receivable.paid_at).label("year"),
-            func.month(Receivable.paid_at).label("month"),
+            extract('year', Receivable.paid_at).label("year"),
+            extract('month', Receivable.paid_at).label("month"),
             func.sum(Receivable.total_amount).label("total_revenue")
         )
         .filter(*filters)
         .group_by(
-            func.year(Receivable.paid_at),
-            func.month(Receivable.paid_at)
+            extract('year', Receivable.paid_at),
+            extract('month', Receivable.paid_at)
         )
         .order_by(
-            func.year(Receivable.paid_at),
-            func.month(Receivable.paid_at)
+            extract('year', Receivable.paid_at),
+            extract('month', Receivable.paid_at)
         )
         .all()
     )
@@ -305,18 +305,18 @@ def expense_by_month_billing(
 
     return (
         db.query(
-            func.year(Expense.due_date).label("year"),
-            func.month(Expense.due_date).label("month"),
+            extract('year', Expense.due_date).label("year"),
+            extract('month', Expense.due_date).label("month"),
             func.sum(Expense.amount).label("total_expense")
         )
         .filter(*filters)
         .group_by(
-            func.year(Expense.due_date),
-            func.month(Expense.due_date)
+            extract('year', Expense.due_date),
+            extract('month', Expense.due_date)
         )
         .order_by(
-            func.year(Expense.due_date),
-            func.month(Expense.due_date)
+            extract('year', Expense.due_date),
+            extract('month', Expense.due_date)
         )
         .all()
     )
@@ -413,10 +413,10 @@ def appointments_count_by_period(
 
     if granularity == "month":
         group_cols = [
-            func.year(Appointment.appointment_date).label("year"),
-            func.month(Appointment.appointment_date).label("month"),
+            extract("year", Appointment.appointment_date).label("year"),
+            extract("month", Appointment.appointment_date).label("month"),
         ]
-        key_fn = lambda row: (row.year, row.month)
+        key_fn = lambda row: (int(row.year), int(row.month))
         build_row_fn = lambda period, row: {"year": period[0], "month": period[1], "count": row.count}
         empty_row_fn = lambda period: {"year": period[0], "month": period[1], "count": 0}
 
@@ -569,29 +569,37 @@ def attendance_percentage(
 
     result = (
         db.query(
-            func.sum(
-                case(
-                    (Appointment.status == AppointmentStatus.REALIZADO.value, 1),
-                    else_=0
-                )
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Appointment.status == AppointmentStatus.REALIZADO.value, 1),
+                        else_=0
+                    )
+                ),
+                0
             ).label("realized"),
 
-            func.sum(
-                case(
-                    (Appointment.status == AppointmentStatus.FALTOU.value, 1),
-                    else_=0
-                )
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Appointment.status == AppointmentStatus.FALTOU.value, 1),
+                        else_=0
+                    )
+                ),
+                0
             ).label("absent")
         )
         .filter(*filters)
         .one()
     )
 
-    total = result.realized + result.absent
+    realized = result.realized or 0
+    absent = result.absent or 0
+    total = realized + absent
 
     return {
         "attendance_percentage": (
-            round(result.realized / total * 100, 2)
+            round(realized / total * 100, 2)
             if total > 0
             else 0
         ),

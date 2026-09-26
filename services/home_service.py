@@ -57,7 +57,7 @@ def pending_appointments(
         Appointment.patient
         ).filter(
         Appointment.clinic_id == clinic_id, 
-        Appointment.status == AppointmentStatus.AGENDADO,
+        Appointment.status == AppointmentStatus.AGENDADO.value,
         Appointment.dentist_id == dentist_id,
         Appointment.appointment_date < date.today()
         ).order_by(Appointment.appointment_date.desc()).all()
@@ -95,8 +95,8 @@ def get_next_appointments_by_dentist(
             Appointment.dentist_id == dentist.id,
             Appointment.appointment_date >= date.today(),
             Appointment.status.in_([
-                AppointmentStatus.AGENDADO,
-                AppointmentStatus.CONFIRMADO
+                AppointmentStatus.AGENDADO.value,
+                AppointmentStatus.CONFIRMADO.value
             ])
         )
         .order_by(

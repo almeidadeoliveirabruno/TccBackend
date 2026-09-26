@@ -131,7 +131,7 @@ def list_receivables(
     )
 
     if receivable_status is not None:
-        query = query.filter(Receivable.status == receivable_status.value)
+        query = query.filter(Receivable.status == receivable_status)
     if date_from is not None:
         query = query.filter(Appointment.appointment_date >= date_from)
     if date_to is not None:

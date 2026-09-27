@@ -178,6 +178,7 @@ def create_dentist(db: Session, dentist_create: DentistCreate, clinic_id: str):
         address_id=address.id,
         status=dentist_create.status,
     )
+    dentist.address = address
 
     db.add(dentist)
     db.flush()
@@ -287,6 +288,7 @@ def update_dentist(
             db.add(new_address)
             db.flush()
             dentist.address_id = new_address.id
+            dentist.address = new_address
 
     # ===== Atualização do CPF (se fornecido) =====
     if dentist_update.cpf is not None:
@@ -302,7 +304,7 @@ def update_dentist(
         dentist.specialties = _resolve_specialties(db, dentist_update.specialties)
 
     db.flush()
-    return dentist
+    return _to_dentist_detail(dentist)
 
 
 def update_dentist_status(
@@ -314,7 +316,7 @@ def update_dentist_status(
     dentist = get_dentist_by_id(db, dentist_id, clinic_id)
     dentist.status = status
     db.flush()
-    return dentist
+    return _to_dentist_detail(dentist)
 
 
 def delete_dentist(db: Session, dentist_id: int, clinic_id: str):

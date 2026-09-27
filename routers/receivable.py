@@ -73,7 +73,7 @@ def update_receivable_route(
 def pay_receivable_route(
     receivable_id: int,
     payment_method: str | None = None,
-    paid_at: datetime | None = None,
+    paid_at: date | None = None,
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):

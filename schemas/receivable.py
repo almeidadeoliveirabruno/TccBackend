@@ -3,16 +3,23 @@ from decimal import Decimal
 from enum import Enum
 from typing import Optional
 from enums.ReceivableStatus import ReceivableStatus
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from models.appointment import AppointmentStatus
 
 
 class ReceivableUpdate(BaseModel):
     status: Optional[ReceivableStatus] = None
     due_date: Optional[date] = None
-    paid_at: Optional[datetime] = None
+    paid_at: Optional[date] = None
     payment_method: Optional[str] = Field(None, max_length=20)
     notes: Optional[str] = None
+
+    @field_validator("paid_at", mode="before")
+    @classmethod
+    def convert_paid_at_to_date(cls, v):
+        if isinstance(v, datetime):
+            return v.date()
+        return v
 
 
 class ReceivableResponse(BaseModel):
@@ -23,13 +30,20 @@ class ReceivableResponse(BaseModel):
     total_amount: Decimal
     status: ReceivableStatus
     due_date: Optional[date] = None
-    paid_at: Optional[datetime] = None
+    paid_at: Optional[date] = None
     payment_method: Optional[str] = None
     notes: Optional[str] = None
     created_at: datetime
     is_paid: bool
     appointment_date: Optional[date] = None
     dentist_name: Optional[str] = None
+
+    @field_validator("paid_at", mode="before")
+    @classmethod
+    def convert_paid_at_to_date(cls, v):
+        if isinstance(v, datetime):
+            return v.date()
+        return v
 
 class ReceivableTable(BaseModel):
     id: int

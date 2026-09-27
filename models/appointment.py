@@ -111,6 +111,12 @@ class Appointment(Base):
         cascade="all, delete-orphan",
     )
 
+    receivable = relationship(
+        "Receivable",
+        back_populates="appointment",
+        uselist=False,
+    )
+
     @property
     def procedures(self):
         return self.procedure_items

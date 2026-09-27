@@ -130,7 +130,7 @@ def update_expense(db: Session, clinic_id: str, expense_id: int, data: ExpenseUp
 
 
 def mark_expense_as_paid(
-    db: Session, clinic_id: str, expense_id: int, paid_at: Optional[datetime] = None
+    db: Session, clinic_id: str, expense_id: int, paid_at: Optional[date] = None
 ) -> Expense:
     expense = get_expense(db, clinic_id, expense_id)
 
@@ -139,8 +139,8 @@ def mark_expense_as_paid(
     if expense.status == ExpenseStatus.PAGO.value:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Despesa já está paga")
 
-    paid_at = paid_at or datetime.utcnow()
-    if paid_at > datetime.utcnow():
+    paid_at = paid_at or date.today()
+    if paid_at > date.today():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Data de pagamento não pode ser no futuro")
 
     expense.status = ExpenseStatus.PAGO.value

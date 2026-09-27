@@ -1,5 +1,4 @@
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String
 from db.database import Base
 
 
@@ -14,4 +13,3 @@ class Address(Base):
     city = Column(String, nullable=False)
     state = Column(String, nullable=False)
     cep = Column(String, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)

@@ -71,5 +71,5 @@ class Patient(Base):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=datetime.utcnow
+        default=datetime.now
     )

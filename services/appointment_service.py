@@ -435,7 +435,8 @@ def create_appointment(
     db.flush()
     db.refresh(appointment)
 
-    create_receivable_for_appointment(db, appointment, clinic_id)
+    if appointment_create.generate_receivable:
+        create_receivable_for_appointment(db, appointment, clinic_id)
     return appointment
 
 
@@ -738,7 +739,16 @@ def update_appointment(
                 )
             )
 
-        update_price_by_appointment(db, appointment, clinic_id)
+        receivable = (
+            db.query(Receivable)
+            .filter(
+                Receivable.appointment_id == appointment.id,
+                Receivable.clinic_id == clinic_id,
+            )
+            .first()
+        )
+        if receivable is not None:
+            update_price_by_appointment(db, appointment, clinic_id)
 
     # Se a data ou horário mudou, precisa reconfirmar e volta para AGENDADO.
     # Caso contrário, preserva status de REALIZADO, CONFIRMADO ou FALTOU se a consulta já estava nesses estados.
@@ -1044,6 +1054,7 @@ def get_appointments_by_clinic_id_for_table(
             Appointment.status,
             Appointment.confirmation_message_sent,
             func.coalesce(Receivable.total_amount, 0).label("total_price"),
+            Receivable.status.label("receivable_status"),
         )
         .join(Appointment.patient)
         .join(Appointment.dentist)
@@ -1104,8 +1115,9 @@ def get_appointments_by_clinic_id_for_table(
         for appointment_id, procedure_name in proc_rows:
             procedures_map.setdefault(appointment_id, []).append(procedure_name)
 
-    items = [
-        TableDataLine(
+    items = []
+    for row in rows:
+        item = TableDataLine(
             id=row.id,
             pacient_name=row.patient_name,
             dentist_name=row.dentist_name,
@@ -1117,9 +1129,10 @@ def get_appointments_by_clinic_id_for_table(
             total_price=float(row.total_price or 0),
             status=row.status,
             confirmation_message_sent=row.confirmation_message_sent,
+            has_receivable=row.receivable_status is not None,
+            receivable_status=row.receivable_status,
         )
-        for row in rows
-    ]
+        items.append(item)
 
     return {
         "items": items,
@@ -1164,6 +1177,11 @@ def _build_appointment_detail(
         // 60
     )
 
+    has_receivable = appointment.receivable is not None
+    receivable_status = None
+    if appointment.receivable is not None:
+        receivable_status = appointment.receivable.status
+
     return TableDetail(
         id=appointment.id,
         pacient_name=appointment.patient.name,
@@ -1178,6 +1196,8 @@ def _build_appointment_detail(
         status=appointment.status,
         confirmation_message_sent=appointment.confirmation_message_sent,
         notes=appointment.notes or "",
+        has_receivable=has_receivable,
+        receivable_status=receivable_status,
     )
 
 

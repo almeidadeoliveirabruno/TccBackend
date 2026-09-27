@@ -11,3 +11,8 @@ wheels/
 
 .env
 .env.*
+
+# Testes locais / Referência
+tests/
+.pytest_cache/
+

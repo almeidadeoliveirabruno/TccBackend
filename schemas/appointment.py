@@ -55,6 +55,7 @@ class AppointmentCreate(BaseModel):
     time_end: time | None = None
 
     notes: str | None = None
+    generate_receivable: bool = True
 
     @field_validator("procedures")
     @classmethod
@@ -110,6 +111,14 @@ class ProcedureSummary(BaseModel):
     price: float
 
 
+class ReceivableSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    status: str
+    total_amount: float
+
+
 class AppointmentProcedureSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -138,6 +147,7 @@ class AppointmentResponse(BaseModel):
     patient_id: int
 
     procedures: list[AppointmentProcedureSummary]
+    receivable: ReceivableSummary | None = None
 
     appointment_date: date
     time_begin: time
@@ -157,6 +167,7 @@ class AppointmentResponseCard(BaseModel):
     patient_id: int
 
     procedures: list[str] = []
+    receivable: ReceivableSummary | None = None
 
     appointment_date: date
     time_begin: time
@@ -182,6 +193,8 @@ class TableDataLine(BaseModel):
     total_price: float
     status: AppointmentStatus
     confirmation_message_sent: bool
+    has_receivable: bool = False
+    receivable_status: str | None = None
 
 
 class TableDetailProcedure(BaseModel):
@@ -208,6 +221,8 @@ class TableDetail(BaseModel):
     status: AppointmentStatus
     confirmation_message_sent: bool
     notes: str | None = None
+    has_receivable: bool = False
+    receivable_status: str | None = None
 
 class TableDataLinePaginatedResponse(BaseModel):
     items: list[TableDataLine]

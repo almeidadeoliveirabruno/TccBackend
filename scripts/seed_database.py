@@ -574,14 +574,13 @@ def seed():
 
             # Adicionar Receivable
             if app_data["is_paid"]:
-                paid_datetime = datetime.combine(app_data["date"], app_data["time_end"])
                 receivable = Receivable(
                     appointment_id=appointment.id,
                     clinic_id=clinic_id,
                     total_amount=total_amount,
                     status="pago",
                     due_date=app_data["date"],
-                    paid_at=paid_datetime,
+                    paid_at=app_data["date"],
                     payment_method=app_data["payment_method"],
                     notes=f"Pagamento recebido via {app_data['payment_method']} referente à consulta."
                 )
@@ -610,7 +609,7 @@ def seed():
                 "category": ExpenseCategory.ALUGUEL.value,
                 "amount": Decimal("3500.00"),
                 "due_date": date(2026, 7, 5),
-                "paid_at": datetime(2026, 7, 5, 10, 30),
+                "paid_at": date(2026, 7, 5),
                 "status": ExpenseStatus.PAGO.value,
                 "notes": "Pago via transferência PIX para imobiliária."
             },
@@ -619,7 +618,7 @@ def seed():
                 "category": ExpenseCategory.MATERIAL_ODONTOLOGICO.value,
                 "amount": Decimal("1250.80"),
                 "due_date": date(2026, 7, 10),
-                "paid_at": datetime(2026, 7, 9, 14, 20),
+                "paid_at": date(2026, 7, 9),
                 "status": ExpenseStatus.PAGO.value,
                 "notes": "NF 45892 - Reposição de estoque de dentística."
             },
@@ -628,7 +627,7 @@ def seed():
                 "category": ExpenseCategory.CONTAS_FIXAS.value,
                 "amount": Decimal("485.40"),
                 "due_date": date(2026, 7, 15),
-                "paid_at": datetime(2026, 7, 14, 11, 0),
+                "paid_at": date(2026, 7, 14),
                 "status": ExpenseStatus.PAGO.value,
                 "notes": "Débito em conta corrente."
             },
@@ -638,7 +637,7 @@ def seed():
                 "category": ExpenseCategory.ALUGUEL.value,
                 "amount": Decimal("3500.00"),
                 "due_date": date(2026, 8, 5),
-                "paid_at": datetime(2026, 8, 5, 9, 15),
+                "paid_at": date(2026, 8, 5),
                 "status": ExpenseStatus.PAGO.value,
                 "notes": "Pago via PIX."
             },
@@ -647,7 +646,7 @@ def seed():
                 "category": ExpenseCategory.MATERIAL_ODONTOLOGICO.value,
                 "amount": Decimal("890.00"),
                 "due_date": date(2026, 8, 12),
-                "paid_at": datetime(2026, 8, 11, 16, 45),
+                "paid_at": date(2026, 8, 11),
                 "status": ExpenseStatus.PAGO.value,
                 "notes": "NF 12903 - Material descartável para biossegurança."
             },
@@ -656,7 +655,7 @@ def seed():
                 "category": ExpenseCategory.LABORATORIO.value,
                 "amount": Decimal("1650.00"),
                 "due_date": date(2026, 8, 20),
-                "paid_at": datetime(2026, 8, 20, 15, 30),
+                "paid_at": date(2026, 8, 20),
                 "status": ExpenseStatus.PAGO.value,
                 "notes": "Serviços protéticos de zircônia e dissilicato."
             },
@@ -666,7 +665,7 @@ def seed():
                 "category": ExpenseCategory.ALUGUEL.value,
                 "amount": Decimal("3500.00"),
                 "due_date": date(2026, 9, 5),
-                "paid_at": datetime(2026, 9, 5, 11, 0),
+                "paid_at": date(2026, 9, 5),
                 "status": ExpenseStatus.PAGO.value,
                 "notes": "Pago via PIX."
             },
@@ -675,7 +674,7 @@ def seed():
                 "category": ExpenseCategory.SOFTWARE.value,
                 "amount": Decimal("299.90"),
                 "due_date": date(2026, 9, 10),
-                "paid_at": datetime(2026, 9, 10, 8, 0),
+                "paid_at": date(2026, 9, 10),
                 "status": ExpenseStatus.PAGO.value,
                 "notes": "Assinatura mensal recorrente no cartão corporativo."
             },

@@ -34,12 +34,12 @@ class Receivable(Base):
     # 'pendente' | 'parcial' | 'pago' | 'cancelado'
     status = Column(String(10), nullable=False, default="pendente")
     due_date = Column(Date, nullable=True)
-    paid_at = Column(DateTime, nullable=True)
+    paid_at = Column(Date, nullable=True)
     payment_method = Column(String(20), nullable=True)  # dinheiro, pix, cartao, etc.
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
 
-    appointment = relationship("Appointment", backref="receivable", uselist=False)
+    appointment = relationship("Appointment", back_populates="receivable", uselist=False)
     clinic = relationship("Clinic")
 
     __table_args__ = (

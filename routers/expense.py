@@ -81,7 +81,7 @@ def update_expense_route(
 @router.post("/{expense_id}/pay", response_model=ExpenseResponse)
 def pay_expense_route(
     expense_id: int,
-    paid_at: datetime | None = None,
+    paid_at: date | None = None,
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):

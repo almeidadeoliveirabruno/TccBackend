@@ -39,8 +39,7 @@ def create_dentist_route(
     if dentist_data.schedules:
         create_dentist_schedules(db, dentist.id, clinic_id, dentist_data.schedules)
 
-    db.refresh(dentist)
-    return dentist
+    return get_dentist_detail(db, dentist.id, clinic_id)
 
 
 @router.get("", response_model=PaginatedResponse[DentistResponse])
@@ -90,9 +89,7 @@ def update_dentist_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
-    dentist = update_dentist(db, dentist_id, dentist_data, clinic_id)
-    db.refresh(dentist)
-    return dentist
+    return update_dentist(db, dentist_id, dentist_data, clinic_id)
 
 
 @router.patch("/{dentist_id}/status", response_model=DentistResponseDetail)
@@ -102,9 +99,7 @@ def update_dentist_status_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
-    dentist = update_dentist_status(db, dentist_id, status_data.status, clinic_id)
-    db.refresh(dentist)
-    return dentist
+    return update_dentist_status(db, dentist_id, status_data.status, clinic_id)
 
 
 @router.delete("/{dentist_id}", status_code=204)

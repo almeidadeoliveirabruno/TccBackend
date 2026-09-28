@@ -17,7 +17,7 @@ def validate_birth_date(birth_date: str) -> str:
 
 class PatientCreate(BaseModel):
     name: str
-    email: str
+    email: str | None = None
     phone: str
     cpf: str
     birth_date: str
@@ -31,7 +31,7 @@ class PatientCreate(BaseModel):
     neighborhood: str
     city: str
     state: str
-    cep: str
+    cep: str | None = None
 
     @field_validator("birth_date")
     @classmethod
@@ -79,7 +79,7 @@ class PatientResponseDetail(BaseModel):
 
     id: int
     name: str
-    email: str
+    email: str | None = None
     phone: str
     cpf: str
     birth_date: str
@@ -93,7 +93,7 @@ class PatientResponseDetail(BaseModel):
     neighborhood: str
     city: str
     state: str
-    cep: str
+    cep: str | None = None
 
 class PatientSummaryAppointment(BaseModel):
     appointment_id: int

@@ -3,7 +3,7 @@ from typing import Optional
 from models import *
 from enums.ReceivableStatus import ReceivableStatus
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, case, cast, Date
+from sqlalchemy import func, and_, case, cast, Date, extract
 from models.appointment import AppointmentStatus
 from models.associations.appointment_procedure import AppointmentProcedure
 from datetime import date, timedelta
@@ -91,9 +91,9 @@ def dentists_billing(
 ):
     receivable_conditions = [Receivable.status == ReceivableStatus.PAGO.value]
     if start_date:
-        receivable_conditions.append(cast(Receivable.paid_at, Date) >= start_date)
+        receivable_conditions.append(Receivable.paid_at >= start_date)
     if end_date:
-        receivable_conditions.append(cast(Receivable.paid_at, Date) <= end_date)
+        receivable_conditions.append(Receivable.paid_at <= end_date)
 
     results = (
         db.query(
@@ -162,9 +162,9 @@ def procedures_billing(
     appointment_conditions = [Appointment.clinic_id == clinic_id]
     receivable_conditions = [Receivable.status == ReceivableStatus.PAGO.value]
     if start_date:
-        receivable_conditions.append(cast(Receivable.paid_at, Date) >= start_date)
+        receivable_conditions.append(Receivable.paid_at >= start_date)
     if end_date:
-        receivable_conditions.append(cast(Receivable.paid_at, Date) <= end_date)
+        receivable_conditions.append(Receivable.paid_at <= end_date)
 
     results = (
         db.query(
@@ -246,24 +246,24 @@ def revenue_by_month_billing(
     filters = [
         Receivable.clinic_id == clinic_id,
         Receivable.status == ReceivableStatus.PAGO.value,
-        cast(Receivable.paid_at, Date) >= start_date,
-        cast(Receivable.paid_at, Date) <= end_date,
+        Receivable.paid_at >= start_date,
+        Receivable.paid_at <= end_date,
     ]
 
     results = (
         db.query(
-            func.year(Receivable.paid_at).label("year"),
-            func.month(Receivable.paid_at).label("month"),
+            extract('year', Receivable.paid_at).label("year"),
+            extract('month', Receivable.paid_at).label("month"),
             func.sum(Receivable.total_amount).label("total_revenue")
         )
         .filter(*filters)
         .group_by(
-            func.year(Receivable.paid_at),
-            func.month(Receivable.paid_at)
+            extract('year', Receivable.paid_at),
+            extract('month', Receivable.paid_at)
         )
         .order_by(
-            func.year(Receivable.paid_at),
-            func.month(Receivable.paid_at)
+            extract('year', Receivable.paid_at),
+            extract('month', Receivable.paid_at)
         )
         .all()
     )
@@ -294,29 +294,31 @@ def expense_by_month_billing(
     end_date: Optional[date] = None,
 ):
     filters = [
-        Expense.clinic_id == clinic_id
+        Expense.clinic_id == clinic_id,
+        Expense.status == "pago",
+        Expense.paid_at.isnot(None),
     ]
 
     if start_date:
-        filters.append(Expense.due_date >= start_date)
+        filters.append(Expense.paid_at >= start_date)
 
     if end_date:
-        filters.append(Expense.due_date <= end_date)
+        filters.append(Expense.paid_at <= end_date)
 
     return (
         db.query(
-            func.year(Expense.due_date).label("year"),
-            func.month(Expense.due_date).label("month"),
+            extract('year', Expense.paid_at).label("year"),
+            extract('month', Expense.paid_at).label("month"),
             func.sum(Expense.amount).label("total_expense")
         )
         .filter(*filters)
         .group_by(
-            func.year(Expense.due_date),
-            func.month(Expense.due_date)
+            extract('year', Expense.paid_at),
+            extract('month', Expense.paid_at)
         )
         .order_by(
-            func.year(Expense.due_date),
-            func.month(Expense.due_date)
+            extract('year', Expense.paid_at),
+            extract('month', Expense.paid_at)
         )
         .all()
     )
@@ -413,10 +415,10 @@ def appointments_count_by_period(
 
     if granularity == "month":
         group_cols = [
-            func.year(Appointment.appointment_date).label("year"),
-            func.month(Appointment.appointment_date).label("month"),
+            extract("year", Appointment.appointment_date).label("year"),
+            extract("month", Appointment.appointment_date).label("month"),
         ]
-        key_fn = lambda row: (row.year, row.month)
+        key_fn = lambda row: (int(row.year), int(row.month))
         build_row_fn = lambda period, row: {"year": period[0], "month": period[1], "count": row.count}
         empty_row_fn = lambda period: {"year": period[0], "month": period[1], "count": 0}
 
@@ -506,16 +508,18 @@ def profit(
     ]
 
     expense_filters = [
-        Expense.clinic_id == clinic_id
+        Expense.clinic_id == clinic_id,
+        Expense.status == "pago",
+        Expense.paid_at.isnot(None),
     ]
 
     if start_date:
-        revenue_filters.append(cast(Receivable.paid_at, Date) >= start_date)
-        expense_filters.append(Expense.due_date >= start_date)
+        revenue_filters.append(Receivable.paid_at >= start_date)
+        expense_filters.append(Expense.paid_at >= start_date)
 
     if end_date:
-        revenue_filters.append(cast(Receivable.paid_at, Date) <= end_date)
-        expense_filters.append(Expense.due_date <= end_date)
+        revenue_filters.append(Receivable.paid_at <= end_date)
+        expense_filters.append(Expense.paid_at <= end_date)
 
     revenue = (
         db.query(
@@ -569,29 +573,37 @@ def attendance_percentage(
 
     result = (
         db.query(
-            func.sum(
-                case(
-                    (Appointment.status == AppointmentStatus.REALIZADO.value, 1),
-                    else_=0
-                )
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Appointment.status == AppointmentStatus.REALIZADO.value, 1),
+                        else_=0
+                    )
+                ),
+                0
             ).label("realized"),
 
-            func.sum(
-                case(
-                    (Appointment.status == AppointmentStatus.FALTOU.value, 1),
-                    else_=0
-                )
+            func.coalesce(
+                func.sum(
+                    case(
+                        (Appointment.status == AppointmentStatus.FALTOU.value, 1),
+                        else_=0
+                    )
+                ),
+                0
             ).label("absent")
         )
         .filter(*filters)
         .one()
     )
 
-    total = result.realized + result.absent
+    realized = result.realized or 0
+    absent = result.absent or 0
+    total = realized + absent
 
     return {
         "attendance_percentage": (
-            round(result.realized / total * 100, 2)
+            round(realized / total * 100, 2)
             if total > 0
             else 0
         ),

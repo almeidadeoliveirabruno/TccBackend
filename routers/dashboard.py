@@ -29,6 +29,8 @@ from services.dashboard_service import (
     profit,
     attendance_percentage
     )
+from schemas.home import ProcedureCategoryDistribution
+from services.home_service import procedures_category_distribution
 from typing import Literal
 
 Granularity = Literal["day", "week", "month"]
@@ -135,3 +137,13 @@ def attendance_percentage_route(
     end_date: date | None = Query(None),
 ):
     return attendance_percentage(db, clinic_id, start_date, end_date)
+
+#gráfico de rosca de distribuição de procedimentos
+@router.get("/procedure-distribution", response_model=list[ProcedureCategoryDistribution])
+def procedure_category_distribution_dashboard_route(
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+):
+    return procedures_category_distribution(db, clinic_id, start_date, end_date)

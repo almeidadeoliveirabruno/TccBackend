@@ -26,10 +26,10 @@ class Expense(Base):
     category = Column(String(50), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
     due_date = Column(Date, nullable=False)
-    paid_at = Column(DateTime, nullable=True)
+    paid_at = Column(Date, nullable=True)
     status = Column(String(10), nullable=False, default="pendente")
     notes = Column(Text, nullable=True)  # Campo para detalhar se necessário.
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
 
     clinic = relationship("Clinic")
  

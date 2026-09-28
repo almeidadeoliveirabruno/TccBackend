@@ -51,6 +51,7 @@ class NextAppointmentsByDentist(BaseModel):
     
 class ProcedureCategoryDistribution(BaseModel):
     category_name: str
+    count: int = 0
     percentage: float
 
     model_config = ConfigDict(from_attributes=True)

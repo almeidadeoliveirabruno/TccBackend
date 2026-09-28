@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from db.dependencies import get_db, get_current_clinic_id
@@ -17,13 +17,14 @@ from services.expense_service import (
     list_expenses,
     update_expense,
     mark_expense_as_paid,
-    cancel_expense,
+    unmark_expense_as_paid,
+    delete_expense,
 )
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
 
-@router.post("", response_model=ExpenseResponse, status_code=201)
+@router.post("", response_model=ExpenseResponse, status_code=status.HTTP_201_CREATED)
 def create_expense_route(
     expense_data: ExpenseCreate,
     db: Session = Depends(get_db),
@@ -54,10 +55,12 @@ def list_expenses_route(
         page_size=page_size,
     )
 
+
 @router.get("/categories", response_model=list[str])
 def list_expense_categories_route():
     """Categorias sugeridas pro frontend popular um <select>."""
     return [c.value for c in ExpenseCategory]
+
 
 @router.get("/{expense_id}", response_model=ExpenseResponse)
 def get_expense_route(
@@ -81,19 +84,26 @@ def update_expense_route(
 @router.post("/{expense_id}/pay", response_model=ExpenseResponse)
 def pay_expense_route(
     expense_id: int,
-    paid_at: datetime | None = None,
+    paid_at: date | None = None,
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
     return mark_expense_as_paid(db, clinic_id, expense_id, paid_at)
 
 
-@router.post("/{expense_id}/cancel", response_model=ExpenseResponse)
-def cancel_expense_route(
+@router.post("/{expense_id}/unpay", response_model=ExpenseResponse)
+def unpay_expense_route(
     expense_id: int,
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
 ):
-    return cancel_expense(db, clinic_id, expense_id)
+    return unmark_expense_as_paid(db, clinic_id, expense_id)
 
 
+@router.delete("/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_expense_route(
+    expense_id: int,
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+):
+    delete_expense(db, clinic_id, expense_id)

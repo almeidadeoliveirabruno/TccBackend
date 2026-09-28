@@ -14,14 +14,20 @@ from enums.ExpenseCategory import ExpenseCategory
 
 
 def create_expense(db: Session, clinic_id: str, data: ExpenseCreate) -> Expense:
+    status_value = data.status.value if data.status is not None else ExpenseStatus.PENDENTE.value
+    paid_at = data.paid_at if status_value == ExpenseStatus.PAGO.value else None
+    if status_value == ExpenseStatus.PAGO.value and paid_at is None:
+        paid_at = date.today()
+
     expense = Expense(
         clinic_id=clinic_id,
         description=data.description,
         category=data.category.value,
         amount=data.amount,
         due_date=data.due_date,
+        paid_at=paid_at,
         notes=data.notes,
-        status=ExpenseStatus.PENDENTE.value,
+        status=status_value,
     )
     db.add(expense)
     db.flush()
@@ -56,11 +62,21 @@ def get_expense_statistics(db: Session, clinic_id: str) -> dict:
     stats = {
         "total_pendente": Decimal("0"), "count_pendente": 0,
         "total_pago": Decimal("0"), "count_pago": 0,
-        "total_cancelado": Decimal("0"), "count_cancelado": 0,
+        "total_geral": Decimal("0"), "count_geral": 0,
     }
-    for status_value, amount_sum, count in rows:
-        stats[f"total_{status_value}"] = amount_sum or Decimal("0")
-        stats[f"count_{status_value}"] = count
+    for row in rows:
+        status_value = row[0]
+        amount_sum = row[1] or Decimal("0")
+        count = row[2] or 0
+        if status_value == ExpenseStatus.PENDENTE.value:
+            stats["total_pendente"] = amount_sum
+            stats["count_pendente"] = count
+        elif status_value == ExpenseStatus.PAGO.value:
+            stats["total_pago"] = amount_sum
+            stats["count_pago"] = count
+        stats["total_geral"] += amount_sum
+        stats["count_geral"] += count
+
     return stats
 
 
@@ -108,18 +124,16 @@ def list_expenses(
 def update_expense(db: Session, clinic_id: str, expense_id: int, data: ExpenseUpdate) -> Expense:
     expense = get_expense(db, clinic_id, expense_id)
 
-    if expense.status == ExpenseStatus.CANCELADO.value:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Não é possível editar uma despesa cancelada",
-        )
-
     update_data = data.model_dump(exclude_unset=True)
 
     if "category" in update_data and update_data["category"] is not None:
         update_data["category"] = data.category.value
     if "status" in update_data and update_data["status"] is not None:
         update_data["status"] = data.status.value
+        if data.status == ExpenseStatus.PAGO and not expense.paid_at and "paid_at" not in update_data:
+            update_data["paid_at"] = date.today()
+        elif data.status == ExpenseStatus.PENDENTE:
+            update_data["paid_at"] = None
 
     for field, value in update_data.items():
         setattr(expense, field, value)
@@ -130,17 +144,12 @@ def update_expense(db: Session, clinic_id: str, expense_id: int, data: ExpenseUp
 
 
 def mark_expense_as_paid(
-    db: Session, clinic_id: str, expense_id: int, paid_at: Optional[datetime] = None
+    db: Session, clinic_id: str, expense_id: int, paid_at: Optional[date] = None
 ) -> Expense:
     expense = get_expense(db, clinic_id, expense_id)
 
-    if expense.status == ExpenseStatus.CANCELADO.value:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Não é possível marcar como paga uma despesa cancelada")
-    if expense.status == ExpenseStatus.PAGO.value:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Despesa já está paga")
-
-    paid_at = paid_at or datetime.utcnow()
-    if paid_at > datetime.utcnow():
+    paid_at = paid_at or date.today()
+    if paid_at > date.today():
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Data de pagamento não pode ser no futuro")
 
     expense.status = ExpenseStatus.PAGO.value
@@ -151,14 +160,18 @@ def mark_expense_as_paid(
     return expense
 
 
-def cancel_expense(db: Session, clinic_id: str, expense_id: int) -> Expense:
+def unmark_expense_as_paid(db: Session, clinic_id: str, expense_id: int) -> Expense:
     expense = get_expense(db, clinic_id, expense_id)
 
-    if expense.status == ExpenseStatus.PAGO.value:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Não é possível cancelar uma despesa já paga")
-
-    expense.status = ExpenseStatus.CANCELADO.value
+    expense.status = ExpenseStatus.PENDENTE.value
+    expense.paid_at = None
 
     db.flush()
     db.refresh(expense)
     return expense
+
+
+def delete_expense(db: Session, clinic_id: str, expense_id: int) -> None:
+    expense = get_expense(db, clinic_id, expense_id)
+    db.delete(expense)
+    db.flush()

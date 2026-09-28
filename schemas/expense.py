@@ -15,6 +15,8 @@ class ExpenseCreate(BaseModel):
     category: ExpenseCategory
     amount: Decimal = Field(..., gt=0)
     due_date: date
+    status: Optional[ExpenseStatus] = None
+    paid_at: Optional[date] = None
     notes: Optional[str] = None
 
     @field_validator("description")
@@ -25,13 +27,27 @@ class ExpenseCreate(BaseModel):
             raise ValueError("Descrição não pode ser vazia")
         return v
 
+    @field_validator("paid_at", mode="before")
+    @classmethod
+    def convert_paid_at_to_date(cls, v):
+        if isinstance(v, datetime):
+            return v.date()
+        return v
+
+    @field_validator("paid_at")
+    @classmethod
+    def paid_at_not_in_future(cls, v: Optional[date]) -> Optional[date]:
+        if v is not None and v > date.today():
+            raise ValueError("Data de pagamento não pode ser no futuro")
+        return v
+
 
 class ExpenseUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=255)
     category: Optional[ExpenseCategory] = None
     amount: Optional[Decimal] = Field(None, gt=0)
     due_date: Optional[date] = None
-    paid_at: Optional[datetime] = None
+    paid_at: Optional[date] = None
     status: Optional[ExpenseStatus] = None
     notes: Optional[str] = None
 
@@ -45,10 +61,17 @@ class ExpenseUpdate(BaseModel):
             raise ValueError("Descrição não pode ser vazia")
         return v
 
+    @field_validator("paid_at", mode="before")
+    @classmethod
+    def convert_paid_at_to_date(cls, v):
+        if isinstance(v, datetime):
+            return v.date()
+        return v
+
     @field_validator("paid_at")
     @classmethod
-    def paid_at_not_in_future(cls, v: Optional[datetime]) -> Optional[datetime]:
-        if v is not None and v > datetime.utcnow():
+    def paid_at_not_in_future(cls, v: Optional[date]) -> Optional[date]:
+        if v is not None and v > date.today():
             raise ValueError("Data de pagamento não pode ser no futuro")
         return v
 
@@ -62,7 +85,14 @@ class ExpenseResponse(BaseModel):
     category: ExpenseCategory
     amount: Decimal
     due_date: date
-    paid_at: Optional[datetime] = None
+    paid_at: Optional[date] = None
     status: ExpenseStatus
     notes: Optional[str] = None
     created_at: datetime
+
+    @field_validator("paid_at", mode="before")
+    @classmethod
+    def convert_paid_at_to_date(cls, v):
+        if isinstance(v, datetime):
+            return v.date()
+        return v

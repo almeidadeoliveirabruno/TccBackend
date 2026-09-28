@@ -57,7 +57,7 @@ def pending_appointments(
         Appointment.patient
         ).filter(
         Appointment.clinic_id == clinic_id, 
-        Appointment.status == AppointmentStatus.AGENDADO,
+        Appointment.status == AppointmentStatus.AGENDADO.value,
         Appointment.dentist_id == dentist_id,
         Appointment.appointment_date < date.today()
         ).order_by(Appointment.appointment_date.desc()).all()
@@ -95,8 +95,8 @@ def get_next_appointments_by_dentist(
             Appointment.dentist_id == dentist.id,
             Appointment.appointment_date >= date.today(),
             Appointment.status.in_([
-                AppointmentStatus.AGENDADO,
-                AppointmentStatus.CONFIRMADO
+                AppointmentStatus.AGENDADO.value,
+                AppointmentStatus.CONFIRMADO.value
             ])
         )
         .order_by(
@@ -125,10 +125,23 @@ def get_next_appointments_by_dentist(
         ],
     )
 
+from typing import Optional
+
 def procedures_category_distribution(
     db: Session,
-    clinic_id: str
+    clinic_id: str,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
 ) -> list[ProcedureCategoryDistribution]:
+    filters = [
+        Appointment.clinic_id == clinic_id,
+        Procedure.clinic_id == clinic_id,
+    ]
+    if start_date:
+        filters.append(Appointment.appointment_date >= start_date)
+    if end_date:
+        filters.append(Appointment.appointment_date <= end_date)
+
     results = (
         db.query(
             Procedure.category.label("category_name"),
@@ -136,13 +149,15 @@ def procedures_category_distribution(
         )
         .join(AppointmentProcedure, AppointmentProcedure.procedure_id == Procedure.id)
         .join(Appointment, Appointment.id == AppointmentProcedure.appointment_id)
-        .filter(Appointment.clinic_id == clinic_id)
+        .filter(*filters)
         .group_by(Procedure.category)
         .order_by(func.count(AppointmentProcedure.id).desc())
         .all()
     )
 
-    total = sum(r.procedure_count for r in results)
+    total = 0
+    for r in results:
+        total += r.procedure_count
 
     if total == 0:
         return []
@@ -150,21 +165,26 @@ def procedures_category_distribution(
     top_4 = results[:4]
     rest = results[4:]
 
-    distribution = [
-        ProcedureCategoryDistribution(
+    distribution = []
+    for r in top_4:
+        calc_pct = round((r.procedure_count / total) * 100, 1)
+        item = ProcedureCategoryDistribution(
             category_name=r.category_name,
-            percentage=round((r.procedure_count / total) * 100, 1),
+            count=r.procedure_count,
+            percentage=calc_pct,
         )
-        for r in top_4
-    ]
+        distribution.append(item)
 
     if rest:
-        rest_count = sum(r.procedure_count for r in rest)
-        distribution.append(
-            ProcedureCategoryDistribution(
-                category_name="Demais categorias",
-                percentage=round((rest_count / total) * 100, 1),
-            )
+        rest_count = 0
+        for r in rest:
+            rest_count += r.procedure_count
+        rest_pct = round((rest_count / total) * 100, 1)
+        item = ProcedureCategoryDistribution(
+            category_name="Demais categorias",
+            count=rest_count,
+            percentage=rest_pct,
         )
+        distribution.append(item)
 
     return distribution

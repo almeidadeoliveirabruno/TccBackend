@@ -38,6 +38,10 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint('id')
         )
         op.create_index(op.f('ix_addresses_id'), 'addresses', ['id'], unique=False)
+    else:
+        addr_cols = [c['name'] for c in insp.get_columns('addresses')]
+        if 'created_at' not in addr_cols:
+            op.add_column('addresses', sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.now()))
 
     # 2. Adiciona coluna address_id nas tabelas dentists e patients se ainda não existirem
     dentist_cols = [c['name'] for c in insp.get_columns('dentists')]

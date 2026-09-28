@@ -897,6 +897,12 @@ def update_appointment_notes(
         clinic_id,
     )
 
+    if appointment.status == AppointmentStatus.CANCELADO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível alterar observações de uma consulta cancelada",
+        )
+
     appointment.notes = notes
 
     db.flush()
@@ -1262,7 +1268,13 @@ def update_procedure_tooth(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Procedimento não encontrado.",
         )
- 
+
+    if item.appointment and item.appointment.status == AppointmentStatus.CANCELADO:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível alterar o dente de uma consulta cancelada.",
+        )
+
     item.tooth = tooth
     db.commit()
     db.refresh(item)

@@ -15,6 +15,8 @@ class ExpenseCreate(BaseModel):
     category: ExpenseCategory
     amount: Decimal = Field(..., gt=0)
     due_date: date
+    status: Optional[ExpenseStatus] = None
+    paid_at: Optional[date] = None
     notes: Optional[str] = None
 
     @field_validator("description")
@@ -23,6 +25,20 @@ class ExpenseCreate(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Descrição não pode ser vazia")
+        return v
+
+    @field_validator("paid_at", mode="before")
+    @classmethod
+    def convert_paid_at_to_date(cls, v):
+        if isinstance(v, datetime):
+            return v.date()
+        return v
+
+    @field_validator("paid_at")
+    @classmethod
+    def paid_at_not_in_future(cls, v: Optional[date]) -> Optional[date]:
+        if v is not None and v > date.today():
+            raise ValueError("Data de pagamento não pode ser no futuro")
         return v
 
 

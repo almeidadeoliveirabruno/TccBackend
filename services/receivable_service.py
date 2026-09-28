@@ -101,6 +101,8 @@ def list_receivables(
     db: Session,
     clinic_id: str,
     receivable_status: Optional[ReceivableStatus] = None,
+    patient_name: Optional[str] = None,
+    dentist_name: Optional[str] = None,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
     page: int = 1,
@@ -128,6 +130,10 @@ def list_receivables(
 
     if receivable_status is not None:
         query = query.filter(Receivable.status == receivable_status)
+    if patient_name:
+        query = query.filter(Patient.name.ilike(f"%{patient_name.strip()}%"))
+    if dentist_name:
+        query = query.filter(Dentist.name.ilike(f"%{dentist_name.strip()}%"))
     if date_from is not None:
         query = query.filter(Appointment.appointment_date >= date_from)
     if date_to is not None:
@@ -217,6 +223,23 @@ def mark_receivable_as_paid(
     receivable.paid_at = paid_at
     if payment_method is not None:
         receivable.payment_method = payment_method
+
+    db.flush()
+    db.refresh(receivable)
+    return receivable
+
+
+def unmark_receivable_as_paid(db: Session, clinic_id: str, receivable_id: int) -> Receivable:
+    receivable = get_receivable(db, clinic_id, receivable_id)
+
+    if receivable.status == ReceivableStatus.CANCELADO.value:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Não é possível alterar uma conta cancelada")
+    if receivable.appointment and receivable.appointment.status == AppointmentStatus.CANCELADO.value:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Não é possível alterar uma conta vinculada a uma consulta cancelada")
+
+    receivable.status = ReceivableStatus.PENDENTE.value
+    receivable.paid_at = None
+    receivable.payment_method = None
 
     db.flush()
     db.refresh(receivable)

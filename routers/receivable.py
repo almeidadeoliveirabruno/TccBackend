@@ -14,6 +14,7 @@ from services.receivable_service import (
     list_receivables,
     update_receivable,
     mark_receivable_as_paid,
+    unmark_receivable_as_paid,
     cancel_receivable,
 )
 
@@ -25,6 +26,8 @@ def list_receivables_route(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: ReceivableStatus | None = None,
+    patient_name: str | None = None,
+    dentist_name: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     db: Session = Depends(get_db),
@@ -34,6 +37,8 @@ def list_receivables_route(
         db,
         clinic_id,
         receivable_status=status,
+        patient_name=patient_name,
+        dentist_name=dentist_name,
         date_from=date_from,
         date_to=date_to,
         page=page,
@@ -78,6 +83,15 @@ def pay_receivable_route(
     clinic_id: str = Depends(get_current_clinic_id),
 ):
     return mark_receivable_as_paid(db, clinic_id, receivable_id, payment_method, paid_at)
+
+
+@router.post("/{receivable_id}/unpay", response_model=ReceivableResponse)
+def unpay_receivable_route(
+    receivable_id: int,
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+):
+    return unmark_receivable_as_paid(db, clinic_id, receivable_id)
 
 
 @router.post("/{receivable_id}/cancel", response_model=ReceivableResponse)

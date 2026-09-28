@@ -294,29 +294,31 @@ def expense_by_month_billing(
     end_date: Optional[date] = None,
 ):
     filters = [
-        Expense.clinic_id == clinic_id
+        Expense.clinic_id == clinic_id,
+        Expense.status == "pago",
+        Expense.paid_at.isnot(None),
     ]
 
     if start_date:
-        filters.append(Expense.due_date >= start_date)
+        filters.append(Expense.paid_at >= start_date)
 
     if end_date:
-        filters.append(Expense.due_date <= end_date)
+        filters.append(Expense.paid_at <= end_date)
 
     return (
         db.query(
-            extract('year', Expense.due_date).label("year"),
-            extract('month', Expense.due_date).label("month"),
+            extract('year', Expense.paid_at).label("year"),
+            extract('month', Expense.paid_at).label("month"),
             func.sum(Expense.amount).label("total_expense")
         )
         .filter(*filters)
         .group_by(
-            extract('year', Expense.due_date),
-            extract('month', Expense.due_date)
+            extract('year', Expense.paid_at),
+            extract('month', Expense.paid_at)
         )
         .order_by(
-            extract('year', Expense.due_date),
-            extract('month', Expense.due_date)
+            extract('year', Expense.paid_at),
+            extract('month', Expense.paid_at)
         )
         .all()
     )
@@ -506,16 +508,18 @@ def profit(
     ]
 
     expense_filters = [
-        Expense.clinic_id == clinic_id
+        Expense.clinic_id == clinic_id,
+        Expense.status == "pago",
+        Expense.paid_at.isnot(None),
     ]
 
     if start_date:
         revenue_filters.append(Receivable.paid_at >= start_date)
-        expense_filters.append(Expense.due_date >= start_date)
+        expense_filters.append(Expense.paid_at >= start_date)
 
     if end_date:
         revenue_filters.append(Receivable.paid_at <= end_date)
-        expense_filters.append(Expense.due_date <= end_date)
+        expense_filters.append(Expense.paid_at <= end_date)
 
     revenue = (
         db.query(

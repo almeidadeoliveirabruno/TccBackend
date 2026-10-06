@@ -30,12 +30,24 @@ class RevenueByMonth(BaseModel):
     total_revenue: Decimal
     model_config = ConfigDict(from_attributes=True)
 
+class RevenueByDay(BaseModel):
+    date: date
+    total_revenue: Decimal
+
+RevenuePeriodResult = Union[RevenueByMonth, RevenueByDay]
+
 
 class ExpenseByMonth(BaseModel):
     year: int
     month: int
     total_expense: Decimal
     model_config = ConfigDict(from_attributes=True)
+
+class ExpenseByDay(BaseModel):
+    date: date
+    total_expense: Decimal
+
+ExpensePeriodResult = Union[ExpenseByMonth, ExpenseByDay]
 
 class AppointmentCount(BaseModel):
     status: AppointmentStatus

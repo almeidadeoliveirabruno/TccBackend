@@ -9,8 +9,8 @@ from schemas.dashboard import (
     DentistCountSummary, 
     ProcedureBillingSummary,
     ProcedureCountSummary,
-    RevenueByMonth,
-    ExpenseByMonth,
+    RevenuePeriodResult,
+    ExpensePeriodResult,
     AppointmentCount,
     AppointmentPeriodResult,
     Profit,
@@ -33,7 +33,7 @@ from schemas.home import ProcedureCategoryDistribution
 from services.home_service import procedures_category_distribution
 from typing import Literal
 
-Granularity = Literal["day", "week", "month"]
+Granularity = Literal["day", "month"]
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -78,24 +78,26 @@ def procedures_appointments_count_route(
     return procedures_appointments_count(db, clinic_id, start_date, end_date)
 
 #gráfico de linha/área
-@router.get("/revenue-summary", response_model=list[RevenueByMonth])
+@router.get("/revenue-summary", response_model=list[RevenuePeriodResult])
 def revenue_summary_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
+    granularity: Granularity = Query("month"),
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
 ):
-    return revenue_by_month_billing(db, clinic_id, start_date, end_date)
+    return revenue_by_month_billing(db, clinic_id, granularity, start_date, end_date)
 
 #gráfico de linha/área
-@router.get("/expense-summary", response_model=list[ExpenseByMonth])
+@router.get("/expense-summary", response_model=list[ExpensePeriodResult])
 def expense_summary_route(
     db: Session = Depends(get_db),
     clinic_id: str = Depends(get_current_clinic_id),
+    granularity: Granularity = Query("month"),
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
 ):
-    return expense_by_month_billing(db, clinic_id, start_date, end_date)
+    return expense_by_month_billing(db, clinic_id, granularity, start_date, end_date)
 
 #gráfico de pizza
 @router.get("/appointments-count", response_model=list[AppointmentCount])
@@ -146,4 +148,4 @@ def procedure_category_distribution_dashboard_route(
     start_date: date | None = Query(None),
     end_date: date | None = Query(None),
 ):
-    return procedures_category_distribution(db, clinic_id, start_date, end_date)
+    return procedures_category_distribution(db, clinic_id, start_date, end_date)

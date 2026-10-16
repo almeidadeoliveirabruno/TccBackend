@@ -7,7 +7,7 @@ class ProcedureCreate(BaseModel):
     name: str
     category: ProcedureCategory
     price: Decimal = Field(max_digits=10, decimal_places=2)
-    duration: int | None = None
+    duration: int = Field(gt=0)
     description: str | None = None
 
 
@@ -15,7 +15,7 @@ class ProcedureUpdate(BaseModel):
     name: str | None = None
     category: ProcedureCategory | None = None
     price: Decimal | None = Field(default=None, max_digits=10, decimal_places=2)
-    duration: int | None = None
+    duration: int | None = Field(default=None, gt=0)
     description: str | None = None
 
 
@@ -24,7 +24,7 @@ class ProcedureResponse(BaseModel):
     name: str
     category: ProcedureCategory
     price: Decimal
-    duration: int | None
+    duration: int
     description: str | None
 
     class Config:

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from core.security import hash_password, verify_password
 from models.user import User
 from schemas.user import UserCreate
-from services.clinic_service import create_clinic
+from services.clinic_service import create_clinic, update_clinic
 
 
 def get_user(
@@ -93,3 +93,38 @@ def authenticate_user(
         return None
 
     return user
+
+
+def update_user_profile(
+    db: Session,
+    user: User,
+    nome: str,
+    nome_clinica: str,
+    cnpj: str
+) -> User:
+    nome_usuario = (nome or "").strip()
+    if not nome_usuario:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Nome é obrigatório"
+        )
+
+    clinic = update_clinic(
+        db=db,
+        clinic_id=user.clinic_id,
+        nome=nome_clinica,
+        cnpj_raw=cnpj
+    )
+
+    user.nome = nome_usuario
+    db.add(user)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Erro ao atualizar dados do usuário"
+        )
+    db.refresh(user)
+    return user

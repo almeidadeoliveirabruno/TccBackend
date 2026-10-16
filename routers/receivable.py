@@ -16,6 +16,7 @@ from services.receivable_service import (
     mark_receivable_as_paid,
     unmark_receivable_as_paid,
     cancel_receivable,
+    reactivate_receivable,
 )
 
 router = APIRouter(prefix="/receivables", tags=["receivables"])
@@ -101,3 +102,12 @@ def cancel_receivable_route(
     clinic_id: str = Depends(get_current_clinic_id),
 ):
     return cancel_receivable(db, clinic_id, receivable_id)
+
+
+@router.post("/{receivable_id}/reactivate", response_model=ReceivableResponse)
+def reactivate_receivable_route(
+    receivable_id: int,
+    db: Session = Depends(get_db),
+    clinic_id: str = Depends(get_current_clinic_id),
+):
+    return reactivate_receivable(db, clinic_id, receivable_id)

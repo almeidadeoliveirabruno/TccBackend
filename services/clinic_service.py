@@ -69,8 +69,14 @@ def _validar_cnpj(cnpj: str) -> str:
             detail="CNPJ deve conter 14 dígitos"
         )
 
-    if cnpj == "00000000000000":
-        # obs: 0
+    primeiro_digito = cnpj[0]
+    todos_iguais = True
+    for digito in cnpj:
+        if digito != primeiro_digito:
+            todos_iguais = False
+            break
+
+    if todos_iguais:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="CNPJ inválido"
@@ -145,3 +151,51 @@ def create_clinic(
         )
 
     return clinic
+
+
+def update_clinic(
+    db: Session,
+    clinic_id: str,
+    nome: str,
+    cnpj_raw: str
+) -> Clinic:
+    nome = (nome or "").strip()
+    if not nome:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Nome da clínica é obrigatório"
+        )
+
+    cnpj = _validar_cnpj(cnpj_raw)
+
+    clinic = db.query(Clinic).filter(Clinic.id == clinic_id).first()
+    if not clinic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Clínica não encontrada"
+        )
+
+    outra_clinica = db.query(Clinic).filter(
+        Clinic.cnpj == cnpj,
+        Clinic.id != clinic_id
+    ).first()
+
+    if outra_clinica:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="CNPJ já cadastrado para outra clínica"
+        )
+
+    clinic.nome = nome
+    clinic.cnpj = cnpj
+
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="CNPJ já cadastrado para outra clínica"
+        )
+
+    return clinic

@@ -115,7 +115,7 @@ def get_or_create_specialty(db: Session, name: str) -> Specialty:
     """Busca uma especialidade existente (case-insensitive) ou cria uma nova.
     Mesmo padrao do get_or_create_schedule ja usado em dentist_schedule_service:
     checa antes, cria se nao achou, da flush pra conseguir o id sem commitar."""
-    name = name.strip()
+    name = name.strip().title()
     specialty = (
         db.query(Specialty)
         .filter(func.lower(Specialty.name) == name.lower())

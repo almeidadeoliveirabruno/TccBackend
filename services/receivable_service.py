@@ -258,6 +258,24 @@ def cancel_receivable(db: Session, clinic_id: str, receivable_id: int) -> Receiv
     db.refresh(receivable)
     return receivable
 
+
+def reactivate_receivable(db: Session, clinic_id: str, receivable_id: int) -> Receivable:
+    receivable = get_receivable(db, clinic_id, receivable_id)
+
+    if receivable.appointment and receivable.appointment.status == AppointmentStatus.CANCELADO.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível reativar cobrança de uma consulta cancelada",
+        )
+
+    receivable.status = ReceivableStatus.PENDENTE.value
+    receivable.paid_at = None
+    receivable.payment_method = None
+
+    db.flush()
+    db.refresh(receivable)
+    return receivable
+
 def update_price_by_appointment(
     db: Session,
     appointment: Appointment,

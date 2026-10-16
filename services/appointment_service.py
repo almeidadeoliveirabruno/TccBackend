@@ -839,7 +839,9 @@ def update_appointment_status(
         AppointmentStatus.CONFIRMADO,
         AppointmentStatus.REALIZADO,
     ]
-    if new_status in active_statuses and appointment.status not in active_statuses:
+    was_inactive = appointment.status not in active_statuses
+
+    if new_status in active_statuses and was_inactive:
         _validate_no_conflict(
             db=db,
             dentist_id=appointment.dentist_id,
@@ -865,7 +867,7 @@ def update_appointment_status(
         if new_status == AppointmentStatus.CANCELADO:
             if receivable.status == "pendente":
                 receivable.status = "cancelado"
-        elif new_status in active_statuses:
+        elif new_status in active_statuses and was_inactive:
             if receivable.status == "cancelado":
                 receivable.status = "pendente"
 

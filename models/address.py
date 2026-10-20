@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime, func
 from db.database import Base
 
 
@@ -13,3 +13,5 @@ class Address(Base):
     city = Column(String, nullable=False)
     state = Column(String, nullable=False)
     cep = Column(String, nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+

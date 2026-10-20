@@ -249,10 +249,15 @@ def unmark_receivable_as_paid(db: Session, clinic_id: str, receivable_id: int) -
 def cancel_receivable(db: Session, clinic_id: str, receivable_id: int) -> Receivable:
     receivable = get_receivable(db, clinic_id, receivable_id)
 
-    if receivable.status == ReceivableStatus.PAGO.value:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Não é possível cancelar uma conta já paga")
+    if receivable.status == ReceivableStatus.CANCELADO.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Não é possível cancelar uma conta já cancelada",
+        )
 
     receivable.status = ReceivableStatus.CANCELADO.value
+    receivable.paid_at = None
+    receivable.payment_method = None
 
     db.flush()
     db.refresh(receivable)

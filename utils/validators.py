@@ -7,6 +7,7 @@ def _validar_cpf(cpf: str) -> bool:
     Valida um CPF verificando seus dois dígitos verificadores.
     """
 
+#regex para remover todos os caracteres que não sejam dígitos
     cpf = re.sub(r"\D", "", cpf)
 
     if len(cpf) != 11:
@@ -50,6 +51,7 @@ def _validar_telefone(telefone: str) -> bool:
     telefone = re.sub(r"\D", "", telefone)
     return len(telefone) in (10, 11)
 
+#regex para validar e-mail simples, ele exige um bloco de texto, um @, outro bloco de texto, um ponto, e mais um bloco de texto
 _EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 

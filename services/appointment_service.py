@@ -283,6 +283,7 @@ def _validate_no_conflict(
         AppointmentStatus.AGENDADO.value,
         AppointmentStatus.CONFIRMADO.value,
         AppointmentStatus.REALIZADO.value,
+        AppointmentStatus.FALTOU.value,
     ]
 
     query = (
@@ -466,6 +467,7 @@ def get_available_times(
         clinic_id,
     )
 
+#Em python weekday comea na segunda e não no domingo, sendo necessário ajustar par o bd que começa no domingo
     day_of_week = (
         appointment_date.weekday() + 1
     ) % 7
@@ -496,6 +498,7 @@ def get_available_times(
                     AppointmentStatus.AGENDADO.value,
                     AppointmentStatus.CONFIRMADO.value,
                     AppointmentStatus.REALIZADO.value,
+                    AppointmentStatus.FALTOU.value,
                 ]
             ),
         )
@@ -508,6 +511,7 @@ def get_available_times(
 
     available = []
 
+#Lembrando que schedule são os horários do expediente do dentista.
     for schedule in schedules:
 
         current = datetime.combine(
@@ -519,6 +523,8 @@ def get_available_times(
             appointment_date,
             schedule.time_end,
         )
+
+        #para cada horário disponível, verifica se há conflito com algum agendamento existente. Se não houver conflito, adiciona o horário à lista de disponíveis.
 
         while current + timedelta(minutes=duration_minutes) <= limit:
 
@@ -808,7 +814,6 @@ def mark_confirmation_message_sent(
     )
 
     appointment.confirmation_message_sent = sent
-
     db.flush()
     db.refresh(appointment)
 
@@ -838,6 +843,7 @@ def update_appointment_status(
         AppointmentStatus.AGENDADO,
         AppointmentStatus.CONFIRMADO,
         AppointmentStatus.REALIZADO,
+        AppointmentStatus.FALTOU,
     ]
     was_inactive = appointment.status not in active_statuses
 

@@ -14,6 +14,7 @@ Granularity = Literal["day", "month"]
  
 def _add_month(d: date, months: int = 1) -> date:
     '''Realiza uma soma ou subtração dos meses, retorna o dia 1 do mês resultante'''
+    ''' O -1 é necessário pois o mês em python começa em 1 e não em 0, então para fazer a conta corretamente é necessário subtrair 1 do mês atual antes de somar os meses desejados.'''
     month_index = d.month - 1 + months
     year = d.year + month_index // 12
     month = month_index % 12 + 1
